@@ -9,7 +9,6 @@ Includes AI-powered sentiment analysis (FinBERT), news aggregation, and analyst 
 import os
 import sys
 import time
-import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -21,6 +20,10 @@ from transformers import pipeline
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Setup centralized logging
+from src.config.logging_config import setup_bot_logging
+logger = setup_bot_logging("market_bot_ai_incremental")
 
 # Import incremental update utilities
 try:
@@ -70,18 +73,7 @@ except ImportError:
     DATABASE_ID = os.getenv("DATABASE_ID")
     HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Setup logging
-logs_dir = os.path.join(project_root, "logs")
-os.makedirs(logs_dir, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(logs_dir, "market_bot_ai_incremental.log")),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+
 
 # Validate configuration
 try:

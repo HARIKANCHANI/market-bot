@@ -15,7 +15,6 @@ import os
 import sys
 import io
 import time
-import logging
 import re
 from datetime import datetime
 from urllib.parse import quote
@@ -32,6 +31,10 @@ from transformers import pipeline
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Setup centralized logging
+from src.config.logging_config import setup_bot_logging
+logger = setup_bot_logging("market_bot_ai")
 
 # Import analyst ratings
 try:
@@ -72,25 +75,7 @@ except ImportError:
     DATABASE_ID = os.getenv("DATABASE_ID")
     HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Setup logging with UTF-8 encoding for emoji support
-logs_dir = os.path.join(project_root, "logs")
-os.makedirs(logs_dir, exist_ok=True)
 
-# Configure UTF-8 handlers for both file and console
-import sys
-file_handler = logging.FileHandler(
-    os.path.join(logs_dir, "market_bot_ai.log"),
-    encoding='utf-8'
-)
-stream_handler = logging.StreamHandler(sys.stdout)
-stream_handler.stream = sys.stdout
-
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[file_handler, stream_handler],
-)
-logger = logging.getLogger(__name__)
 
 # Validate configuration
 try:

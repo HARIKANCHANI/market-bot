@@ -23,6 +23,10 @@ project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(_
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
+# Setup centralized logging
+from src.config.logging_config import setup_bot_logging
+logger = setup_bot_logging("market_bot_lite")
+
 # Import stock data (prefer 650-stock version if available)
 try:
     from data.nse_stocks_650 import get_all_stocks_with_classification, get_validated_stocks

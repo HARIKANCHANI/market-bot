@@ -8,7 +8,6 @@ Includes comprehensive news aggregation, analyst ratings, and keyword-based sent
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import sys
@@ -24,6 +23,10 @@ from urllib.parse import quote
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Setup centralized logging
+from src.config.logging_config import setup_bot_logging
+logger = setup_bot_logging("market_bot_pro_incremental")
 
 # Configuration
 USE_COMPREHENSIVE_NEWS = True
@@ -88,18 +91,7 @@ except ImportError:
     NOTION_TOKEN = os.getenv("NOTION_TOKEN")
     DATABASE_ID = os.getenv("DATABASE_ID")
 
-# Setup logging
-logs_dir = os.path.join(project_root, "logs")
-os.makedirs(logs_dir, exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(logs_dir, "market_bot_pro_incremental.log")),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+
 
 # Validate configuration
 try:

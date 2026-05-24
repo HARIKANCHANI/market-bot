@@ -8,7 +8,6 @@ Uses yfinance as primary data source with NSE quote API fallback.
 
 from __future__ import annotations
 
-import logging
 import os
 import re
 import sys
@@ -30,6 +29,10 @@ project_root = os.path.dirname(
 )
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
+# Setup centralized logging
+from src.config.logging_config import setup_bot_logging
+logger = setup_bot_logging("market_bot_pro")
 
 
 # ---------------------------------------------------------------------------
@@ -104,17 +107,7 @@ except ImportError:
     DATABASE_ID = os.getenv("DATABASE_ID")
 
 
-# Logging
-os.makedirs("logs", exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("logs/market_bot_pro.log"),
-        logging.StreamHandler(),
-    ],
-)
-logger = logging.getLogger(__name__)
+
 
 # Validate configuration
 try:
