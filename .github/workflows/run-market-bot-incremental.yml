@@ -1,0 +1,133 @@
+name: Run Market Bot - Incremental Update
+
+on:
+  # Run manually
+  workflow_dispatch:
+    inputs:
+      bot_type:
+        description: 'Which incremental bot to run'
+        required: true
+        default: 'lite'
+        type: choice
+        options:
+          - lite
+          - pro
+          - ai
+  
+  # Or run on schedule for daily updates
+  # Recommended: Run incremental bots daily, full bots weekly
+  # schedule:
+  #   # Run every weekday at 8:30 AM IST (3:00 AM UTC) - Before market opens
+  #   - cron: '0 3 * * 1-5'
+
+jobs:
+  run-incremental-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        with:
+          path: models
+          key: ${{ runner.os }}-huggingface-finbert-v1
+          restore-keys: |
+            ${{ runner.os }}-huggingface-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup models directory
+        run: |
+          mkdir -p models
+          echo "Models directory created"
+
+      - name: Download FinBERT model (if not cached)
+        if: ${{ github.event.inputs.bot_type == 'ai' }}
+        run: |
+          if [ -d "models/models--ProsusAI--finbert" ]; then
+            echo "✅ FinBERT model found in cache - skipping download"
+            ls -lh models/
+          else
+            echo "📥 Downloading FinBERT model (~440MB)..."
+            python -c "import os; os.environ['TRANSFORMERS_CACHE'] = 'models'; os.environ['HF_HOME'] = 'models'; from transformers import AutoTokenizer, AutoModelForSequenceClassification; print('Downloading tokenizer...'); t = AutoTokenizer.from_pretrained('ProsusAI/finbert', cache_dir='models'); print('Downloading model...'); m = AutoModelForSequenceClassification.from_pretrained('ProsusAI/finbert', cache_dir='models'); print('✅ Model downloaded successfully!')"
+          fi
+
+      - name: Create .env file
+        run: |
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+      
+      - name: Run Incremental Market Bot Lite
+        if: ${{ github.event.inputs.bot_type == 'lite' || github.event.inputs.bot_type == '' }}
+        run: |
+          echo "🔄 Running Incremental Market Bot Lite..."
+          echo "⚡ Updates existing tickers + adds new ones"
+          python src/bots/market_bot_lite_incremental.py
+        timeout-minutes: 20
+      
+      - name: Run Incremental Market Bot Pro
+        if: ${{ github.event.inputs.bot_type == 'pro' }}
+        run: |
+          echo "🔄 Running Incremental Market Bot Pro..."
+          echo "⚡ Updates existing tickers + adds new ones"
+          python src/bots/market_bot_pro_incremental.py
+        timeout-minutes: 30
+      
+      - name: Run Incremental Market Bot AI
+        if: ${{ github.event.inputs.bot_type == 'ai' }}
+        run: |
+          echo "🔄 Running Incremental Market Bot AI..."
+          echo "⚡ Updates existing tickers + adds new ones"
+          echo "🤖 Using cached FinBERT model for AI sentiment analysis"
+          python src/bots/market_bot_ai_incremental.py
+        timeout-minutes: 120
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: incremental-bot-logs-${{ github.event.inputs.bot_type }}-${{ github.run_number }}
+          path: logs/*.log
+          retention-days: 7
+      
+      - name: Summary
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "✅ INCREMENTAL UPDATE COMPLETE!"
+          echo "=========================================="
+          echo ""
+          echo "Bot Type: ${{ github.event.inputs.bot_type }}"
+          echo "Run Number: ${{ github.run_number }}"
+          echo ""
+          echo "What happened:"
+          echo "  🔄 Updated existing tickers with latest data"
+          echo "  ✨ Added new tickers if any were found"
+          echo "  📊 Ranked all stocks by performance"
+          echo "  📤 Synced to Notion database"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Check your Notion database for updates"
+          echo "  2. Download logs artifact for detailed stats"
+          echo "  3. Review rankings and signals"
+          echo ""
+          echo "=========================================="

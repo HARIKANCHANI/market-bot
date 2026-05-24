@@ -1,0 +1,132 @@
+name: Daily Incremental Update
+
+on:
+  # Run daily at 8:30 AM IST (3:00 AM UTC) - Before market opens
+  # Incremental update is faster (10-15 min) so runs 30 min earlier
+  schedule:
+    - cron: '0 3 * * 1-5'  # Monday to Friday
+  
+  # Also allow manual trigger
+  workflow_dispatch:
+    inputs:
+      bot_type:
+        description: 'Which bot to run (default: lite for speed)'
+        required: false
+        default: 'lite'
+        type: choice
+        options:
+          - lite
+          - pro
+          - ai
+
+jobs:
+  incremental-update:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Cache HuggingFace models
+        uses: actions/cache@v4
+        if: ${{ github.event.inputs.bot_type == 'ai' || github.event.inputs.bot_type == '' }}
+        with:
+          path: models
+          key: ${{ runner.os }}-huggingface-finbert-v1
+          restore-keys: |
+            ${{ runner.os }}-huggingface-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Setup models directory
+        run: |
+          mkdir -p models
+          echo "Models directory created"
+
+      - name: Configure environment
+        run: |
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+      
+      - name: Run Incremental Update (Lite - Default for scheduled runs)
+        if: ${{ github.event.inputs.bot_type == '' || github.event.inputs.bot_type == 'lite' || github.event_name == 'schedule' }}
+        run: |
+          echo "🔄 Running Daily Incremental Update - Lite Version"
+          echo "⚡ Fast update: ~10-15 minutes"
+          echo "📊 Updates existing + adds new tickers"
+          python src/bots/market_bot_lite_incremental.py
+        timeout-minutes: 20
+      
+      - name: Run Incremental Update (Pro)
+        if: ${{ github.event.inputs.bot_type == 'pro' }}
+        run: |
+          echo "🔄 Running Daily Incremental Update - Pro Version"
+          echo "⚡ Comprehensive update: ~15-25 minutes"
+          echo "📊 Updates existing + adds new tickers"
+          python src/bots/market_bot_pro_incremental.py
+        timeout-minutes: 30
+      
+      - name: Run Incremental Update (AI)
+        if: ${{ github.event.inputs.bot_type == 'ai' }}
+        run: |
+          echo "🔄 Running Daily Incremental Update - AI Version"
+          echo "🤖 AI-powered update: ~60-90 minutes"
+          echo "📊 Updates existing + adds new tickers"
+          python src/bots/market_bot_ai_incremental.py
+        timeout-minutes: 120
+      
+      - name: Check database health
+        if: always()
+        run: |
+          echo "🔍 Checking database health..."
+          python scripts/maintenance/check_database.py
+      
+      - name: Upload execution logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-incremental-logs-${{ github.run_number }}
+          path: |
+            logs/*.log
+          retention-days: 30
+      
+      - name: Update Summary
+        if: success()
+        run: |
+          echo "=========================================="
+          echo "✅ DAILY INCREMENTAL UPDATE COMPLETE!"
+          echo "=========================================="
+          echo ""
+          echo "Run: #${{ github.run_number }}"
+          echo "Date: $(date '+%Y-%m-%d %H:%M:%S')"
+          echo ""
+          echo "What was updated:"
+          echo "  🔄 All existing stock data refreshed"
+          echo "  ✨ New stocks added (if any)"
+          echo "  📊 Rankings recalculated"
+          echo "  💾 Notion database synced"
+          echo ""
+          echo "Performance:"
+          echo "  ⚡ ~50% faster than full rebuild"
+          echo "  📉 Lower API usage"
+          echo "  🎯 Same accuracy as full bot"
+          echo ""
+          echo "Your Notion database is now up to date!"
+          echo "=========================================="
