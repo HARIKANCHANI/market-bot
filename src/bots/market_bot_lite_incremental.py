@@ -317,16 +317,22 @@ def upsert_to_notion(data: dict, rank: int | None = None) -> tuple:
         # Add analyst ratings if available
         if HAS_ANALYST_RATINGS and data.get("has_data", True):
             try:
+                print(f"   📊 Fetching analyst ratings for {data['ticker']}...")
                 ratings_data = aggregate_all_analyst_ratings(data["ticker"])
-                if ratings_data["has_data"]:
+                if ratings_data and ratings_data.get("has_data"):
                     properties["Consensus"] = {"select": {"name": ratings_data["consensus"]}}
                     rating_text = f"{ratings_data['rating_numeric']:.2f}/5.0 ({ratings_data['analyst_count']} analysts)"
                     properties["Ratings"] = {"rich_text": [{"text": {"content": rating_text}}]}
+                    print(f"   ✅ Ratings: {ratings_data['consensus']} ({rating_text})")
                 else:
                     properties["Consensus"] = {"select": {"name": "No Consensus"}}
                     properties["Ratings"] = {"rich_text": [{"text": {"content": "N/A"}}]}
-            except:
-                pass
+                    print(f"   ℹ️  No analyst ratings available")
+            except Exception as e:
+                print(f"   ⚠️  Failed to fetch ratings: {str(e)}")
+                # Still set default values even if fetch fails
+                properties["Consensus"] = {"select": {"name": "No Consensus"}}
+                properties["Ratings"] = {"rich_text": [{"text": {"content": "N/A"}}]}
 
         # Upsert to Notion
         success, action = upsert_notion_entry(data["ticker"], properties)
