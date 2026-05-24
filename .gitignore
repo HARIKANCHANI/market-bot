@@ -48,3 +48,6 @@ Thumbs.db
 archive/
 *.pyc
 __pycache__
+
+# AI Models (downloaded locally, cached in GitHub Actions)
+models/
