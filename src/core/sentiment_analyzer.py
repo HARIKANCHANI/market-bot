@@ -69,10 +69,10 @@ class SentimentAnalyzer:
         """Load FinBERT model and tokenizer"""
         try:
             logger.info(f"📥 Loading {self.model_name} model...")
-            
+
             # Load tokenizer first (fast)
             self.tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            
+
             # Load model pipeline
             self.model = pipeline(
                 "sentiment-analysis",
@@ -82,9 +82,9 @@ class SentimentAnalyzer:
                 max_length=512,
                 truncation=True
             )
-            
+
             logger.info("✅ FinBERT model loaded successfully!")
-            
+
         except Exception as e:
             logger.error(f"❌ Failed to load FinBERT model: {str(e)}")
             logger.warning("⚠️  Will use keyword-based fallback for sentiment analysis")

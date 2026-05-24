@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 MARKET INTELLIGENCE BOT - AI SENTIMENT VERSION
 Complete market analysis with:
@@ -12,12 +13,18 @@ Complete market analysis with:
 
 import os
 import sys
+import io
 import time
 import logging
 import re
 from datetime import datetime
 from urllib.parse import quote
 import requests
+
+# Force UTF-8 encoding for Windows console (fixes emoji display)
+if sys.platform == 'win32':
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 import yfinance as yf
 from transformers import pipeline
 
@@ -65,16 +72,23 @@ except ImportError:
     DATABASE_ID = os.getenv("DATABASE_ID")
     HF_TOKEN = os.getenv("HF_TOKEN")
 
-# Setup logging
+# Setup logging with UTF-8 encoding for emoji support
 logs_dir = os.path.join(project_root, "logs")
 os.makedirs(logs_dir, exist_ok=True)
+
+# Configure UTF-8 handlers for both file and console
+import sys
+file_handler = logging.FileHandler(
+    os.path.join(logs_dir, "market_bot_ai.log"),
+    encoding='utf-8'
+)
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.stream = sys.stdout
+
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler(os.path.join(logs_dir, "market_bot_ai.log")),
-        logging.StreamHandler(),
-    ],
+    handlers=[file_handler, stream_handler],
 )
 logger = logging.getLogger(__name__)
 
