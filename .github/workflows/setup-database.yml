@@ -1,0 +1,73 @@
+name: Setup Database
+
+on:
+  # Run manually
+  workflow_dispatch:
+    inputs:
+      setup_action:
+        description: 'Which setup action to run'
+        required: true
+        default: 'add_analyst_columns'
+        type: choice
+        options:
+          - fresh_start
+          - add_analyst_columns
+          - setup_models
+          - check_database
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create .env file
+        run: |
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+      
+      - name: Fresh Start (Delete all data)
+        if: ${{ github.event.inputs.setup_action == 'fresh_start' }}
+        run: |
+          echo "⚠️  WARNING: Deleting all Notion database entries..."
+          python scripts/setup/fresh_start.py
+      
+      - name: Add Analyst Columns
+        if: ${{ github.event.inputs.setup_action == 'add_analyst_columns' }}
+        run: |
+          echo "📊 Adding analyst rating columns..."
+          python scripts/setup/add_analyst_columns.py
+      
+      - name: Setup AI Models
+        if: ${{ github.event.inputs.setup_action == 'setup_models' }}
+        run: |
+          echo "🤖 Downloading AI models..."
+          python scripts/setup/setup_models.py
+        timeout-minutes: 30
+      
+      - name: Check Database Status
+        if: ${{ github.event.inputs.setup_action == 'check_database' }}
+        run: |
+          echo "🔍 Checking database status..."
+          python scripts/maintenance/check_database.py
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: setup-logs-${{ github.run_number }}
+          path: logs/*.log
+          retention-days: 7

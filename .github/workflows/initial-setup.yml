@@ -1,0 +1,89 @@
+name: Initial Setup - First Time Only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  complete-setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          echo "📦 Installing dependencies..."
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create .env file
+        run: |
+          echo "🔐 Configuring secrets..."
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+      
+      - name: Check database connection
+        run: |
+          echo "🔍 Step 1/4: Checking database connection..."
+          python scripts/maintenance/check_database.py
+      
+      - name: Clean database (fresh start)
+        run: |
+          echo "🧹 Step 2/4: Cleaning database..."
+          python scripts/setup/fresh_start.py
+      
+      - name: Add analyst columns
+        run: |
+          echo "📊 Step 3/4: Adding analyst columns..."
+          python scripts/setup/add_analyst_columns.py
+      
+      - name: Run initial data load
+        run: |
+          echo "🚀 Step 4/4: Loading initial data (this may take 20-30 minutes)..."
+          python src/bots/market_bot_lite.py
+        timeout-minutes: 40
+      
+      - name: Final database check
+        if: always()
+        run: |
+          echo "✅ Verifying setup..."
+          python scripts/maintenance/check_database.py
+      
+      - name: Upload setup logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: initial-setup-logs-${{ github.run_number }}
+          path: |
+            logs/*.log
+          retention-days: 30
+      
+      - name: Setup Summary
+        if: success()
+        run: |
+          echo "========================================"
+          echo "✅ SETUP COMPLETE!"
+          echo "========================================"
+          echo ""
+          echo "Your Market Bot is now fully set up and ready to use!"
+          echo ""
+          echo "What was done:"
+          echo "  ✅ Database connection verified"
+          echo "  ✅ Database cleaned (fresh start)"
+          echo "  ✅ Analyst columns added"
+          echo "  ✅ Initial data loaded (675 stocks)"
+          echo ""
+          echo "Next steps:"
+          echo "  1. Check your Notion database"
+          echo "  2. Run 'Run Market Bot' workflow for updates"
+          echo "  3. 'Daily Market Update' will run automatically"
+          echo ""
+          echo "========================================"
