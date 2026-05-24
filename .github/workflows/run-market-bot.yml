@@ -52,7 +52,23 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      
+
+      - name: Setup models directory
+        run: |
+          mkdir -p models
+          echo "Models directory created"
+
+      - name: Download FinBERT model (if not cached)
+        if: ${{ github.event.inputs.bot_type == 'ai' }}
+        run: |
+          if [ -d "models/models--ProsusAI--finbert" ]; then
+            echo "✅ FinBERT model found in cache - skipping download"
+            ls -lh models/
+          else
+            echo "📥 Downloading FinBERT model (~440MB)..."
+            python -c "import os; os.environ['TRANSFORMERS_CACHE'] = 'models'; os.environ['HF_HOME'] = 'models'; from transformers import AutoTokenizer, AutoModelForSequenceClassification; print('Downloading tokenizer...'); t = AutoTokenizer.from_pretrained('ProsusAI/finbert', cache_dir='models'); print('Downloading model...'); m = AutoModelForSequenceClassification.from_pretrained('ProsusAI/finbert', cache_dir='models'); print('✅ Model downloaded successfully!')"
+          fi
+
       - name: Create .env file
         run: |
           echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
