@@ -1,0 +1,78 @@
+name: Run Market Bot
+
+on:
+  # Run manually
+  workflow_dispatch:
+    inputs:
+      bot_type:
+        description: 'Which bot to run'
+        required: true
+        default: 'lite'
+        type: choice
+        options:
+          - lite
+          - pro
+          - ai
+  
+  # Or run on schedule (optional - uncomment to enable)
+  # schedule:
+  #   # Run every day at 9 AM IST (3:30 AM UTC)
+  #   - cron: '30 3 * * *'
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create .env file
+        run: |
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+          echo "HF_TOKEN=${{ secrets.HF_TOKEN }}" >> .env
+      
+      - name: Run Market Bot Lite
+        if: ${{ github.event.inputs.bot_type == 'lite' || github.event.inputs.bot_type == '' }}
+        run: |
+          echo "🚀 Running Market Bot Lite..."
+          python src/bots/market_bot_lite.py
+      
+      - name: Run Market Bot Pro
+        if: ${{ github.event.inputs.bot_type == 'pro' }}
+        run: |
+          echo "🚀 Running Market Bot Pro..."
+          python src/bots/market_bot_pro.py
+      
+      - name: Run Market Bot AI
+        if: ${{ github.event.inputs.bot_type == 'ai' }}
+        run: |
+          echo "🚀 Running Market Bot AI..."
+          python src/bots/market_bot_ai.py
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: bot-logs
+          path: logs/*.log
+          retention-days: 7

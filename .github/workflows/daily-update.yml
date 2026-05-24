@@ -1,0 +1,51 @@
+name: Daily Market Update
+
+on:
+  # Run daily at 9 AM IST (3:30 AM UTC) - Before market opens
+  schedule:
+    - cron: '30 3 * * 1-5'  # Monday to Friday
+  
+  # Also allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  update-stocks:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Configure environment
+        run: |
+          echo "NOTION_TOKEN=${{ secrets.NOTION_TOKEN }}" >> .env
+          echo "DATABASE_ID=${{ secrets.DATABASE_ID }}" >> .env
+      
+      - name: Run Market Bot Lite (Quick Update)
+        run: |
+          python src/bots/market_bot_lite.py
+        timeout-minutes: 30
+      
+      - name: Check database health
+        if: always()
+        run: |
+          python scripts/maintenance/check_database.py
+      
+      - name: Upload execution logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: daily-update-logs-${{ github.run_number }}
+          path: |
+            logs/*.log
+          retention-days: 30
