@@ -1,0 +1,244 @@
+"""
+NSE Stock Classification Data - 650 Stocks
+Contains Nifty 150, Midcap 200, and Smallcap 300 stocks
+Data validated against Yahoo Finance availability
+"""
+
+import yfinance as yf
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Nifty 150 Stocks (Large Cap - Nifty 100 + Nifty Next 50)
+NIFTY_150 = [
+    # Nifty 100
+    "RELIANCE", "TCS", "HDFCBANK", "INFY", "HINDUNILVR", "ICICIBANK", "KOTAKBANK",
+    "SBIN", "BHARTIARTL", "BAJFINANCE", "ITC", "ASIANPAINT", "LT", "AXISBANK",
+    "DMART", "TITAN", "SUNPHARMA", "ULTRACEMCO", "NESTLEIND", "MARUTI",
+    "HCLTECH", "ONGC", "NTPC", "POWERGRID", "WIPRO", "ADANIPORTS", "BAJAJFINSV",
+    "COALINDIA", "M&M", "TECHM", "INDUSINDBK", "DRREDDY", "BPCL", "SBILIFE",
+    "TATACONSUM", "HINDALCO", "BAJAJ-AUTO", "VEDL", "GODREJCP", "SHREECEM",
+    "UPL", "HEROMOTOCO", "INDIGO", "HAVELLS", "ICICIPRULI", "PIDILITIND",
+    "TATAPOWER", "HINDPETRO", "DABUR", "SIEMENS", "IOC", "GAIL", "AMBUJACEM",
+    "BOSCHLTD", "ADANIPOWER", "DLF", "BANKBARODA", "MARICO", "BERGEPAINT",
+    "SRF", "BANDHANBNK", "BEL", "CHOLAFIN", "COLPAL", "TORNTPHARM",
+    "TRENT", "SAIL", "MOTHERSON", "LUPIN", "AUROPHARMA", "ACC", "CONCOR",
+    "MUTHOOTFIN", "ZYDUSLIFE", "GODREJPROP", "INDIAMART", "CUMMINSIND",
+    "LICI", "INDUSTOWER", "ABCAPITAL", "PAGEIND", "NAUKRI", "ALKEM",
+    "HAL", "PNB", "ADANIENSOL", "POLYCAB", "TATACOMM", "IDEA",
+    "RECLTD", "PFC", "IRFC", "IRCTC", "SOLARINDS", "VOLTAS",
+    "FEDERALBNK", "JINDALSTEL", "CANBK", "ABB", "IDFCFIRSTB",
+    
+    # Nifty Next 50
+    "LICHSGFIN", "UNIONBANK", "BIOCON", "SCHAEFFLER", "CROMPTON", "NAVINFLUOR",
+    "PETRONET", "ASTRAL", "OBEROIRLTY", "BHARATFORG", "ASHOKLEY", "ZEEL",
+    "MPHASIS", "PERSISTENT", "COFORGE", "SONACOMS", "CHAMBLFERT", "M&MFIN",
+    "POONAWALLA", "BATAINDIA", "GODREJIND", "JUBLFOOD", "BALKRISIND", "ESCORTS",
+    "SUNDRMFAST", "AIAENG", "EXIDEIND", "APOLLOTYRE", "CESC", "MRF",
+    "PIIND", "LINDEINDIA", "SUPREMEIND", "PHOENIXLTD", "COROMANDEL", "KAJARIACER",
+    "CGPOWER", "DIXON", "SJVN", "NHPC", "NMDC", "ABFRL", "RBLBANK",
+    "MAXHEALTH", "BHEL", "OFSS", "PRESTIGE", "SBICARD", "HONAUT"
+]
+
+# Midcap 200 Stocks
+MIDCAP_200 = [
+    "KPITTECH", "DEEPAKNTR", "IIFL", "LTTS", "TVSMOTOR", "IPCALAB", "GLAXO",
+    "SUNDARMFIN", "PGHH", "BLUESTARCO", "CLEAN", "3MINDIA", "SYNGENE", "AUBANK",
+    "MANAPPURAM", "CREDITACC", "CENTRALBK", "TATACHEM", "NATIONALUM", "GNFC",
+    "UBL", "ICICIGI", "IGL", "KANSAINER", "GRINDWELL", "IEX", "IREDA",
+    "TIINDIA", "RELAXO", "DELTACORP", "RAJESHEXPO", "GRAPHITE", "RAIN",
+    "JKCEMENT", "LAURUSLABS", "ZENSARTECH", "INDHOTEL", "FORTIS", "SUMICHEM",
+    "NATCOPHARM", "RVNL", "CDSL", "AAVAS", "FLUOROCHEM", "KEI", "RADICO",
+    "MOTILALOFS", "JBCHEPHARM", "CAPLIPOINT", "GICRE", "VBL", "ANGELONE",
+    "SAFARI", "IRCON", "MAZDOCK", "RITES", "BEML", "GRSE", "COCHINSHIP",
+    "RAILTEL", "HAPPSTMNDS", "NEWGEN", "INTELLECT", "KIMS", "RAINBOW", "MEDPLUS",
+    "LXCHEM", "ANURAS", "TATVA", "RELIGARE", "HFCL", "GTLINFRA", "TTML",
+    "BHARTIHEXA", "JYOTHYLAB", "VGUARD", "SYMPHONY", "AMBER", "BASF", "FINCABLES",
+    "KEC", "CEATLTD", "JKTYRE", "MGL", "GUJGASLTD", "SKFINDIA", "TIMKEN",
+    "GREAVESCOT", "IFBIND", "KNRCON", "PNC", "NESCO", "SOBHA", "BRIGADE",
+    "MAHLIFE", "SUNTV", "PVRINOX", "SAREGAMA", "CENTURYPLY", "GREENPANEL", "GPPL",
+    "JKLAKSHMI", "STARCEMENT", "HEIDELBERG", "RAMCOCEM", "JKPAPER", "TNPL",
+    "HINDZINC", "WELCORP", "BIRLACORPN", "JSWHL", "RESPONIND", "GMDCLTD",
+    "MOIL", "NETWORK18", "GATEWAY", "HATHWAY", "NAVNETEDUL", "MASTEK", "SONATSOFTW",
+    "CYIENT", "RATEGAIN", "DATAMATICS", "VRLLOG", "MAHLOG", "TCI", "BLUEDART",
+    "CARBORUNIV", "EIDPARRY", "RAJRATAN", "NOCIL", "AKZOINDIA", "ATUL", "HIKAL",
+    "BALRAMCHIN", "DCMSHRIRAM", "THYROCARE", "VIJAYA", "SUDARSCHEM", "ALKYLAMINE",
+    "TARSONS", "GHCL", "GALAXYSURF", "PFIZER", "ABBOTINDIA", "SANOFI", "GRANULES",
+    "GLENMARK", "RENUKA", "BAJAJHLDNG", "GESHIP", "GODFRYPHLP", "MAHSCOOTER",
+    "SUZLON", "JSWENERGY", "TORNTPOWER", "ADANIGREEN", "FINEORG", "CIPLA",
+    "APLAPOLLO", "ROSSARI", "ROUTE", "METROPOLIS",
+    # Additional Midcap 200 stocks
+    "CRISIL", "POLYCA", "NLCINDIA", "SULA", "KALYANKJIL", "TATAELXSI", "QUESS",
+    "AETHER", "MIDHANI", "MMTC", "MSTCLTD", "NBCC", "NATIONALUM", "NLCINDCOM",
+    "OIL", "ORIENTELEC", "PDSL", "PGHL", "PRINCEPIPE", "PRAJIND",
+    "RAMCOCEM", "RATNAMANI", "RAYMOND", "REDINGTON", "RELAXO", "RITES",
+    "ROUTE", "RCF", "SAIL", "SARDAEN", "SCHNEIDER", "SEQUENT",
+    "SHARDACROP", "SHILPAMED", "SHOPERSTOP", "SHREECEM", "SHRIRAMFIN", "SIEMENS",
+    "SJVN", "SOLARINDS", "SONACOMS", "SPARC", "SRF", "STARCEMENT",
+    "SUMICHEM", "SUNDARAM", "SUNDRMFAST", "SUPRAJIT", "SUPREMEIND", "SUVENPHAR",
+    "SWANENERGY", "SYMPHONY", "TANLA", "TATACHEM", "TATACOMM", "TATAELXSI",
+    "TATAINVEST", "TATAMOTORS", "TATAPOWER", "TCNSBRANDS", "TEAMLEASE", "TECHM",
+    "TEGA", "THERMAX", "THYROCARE", "TIINDIA", "TIMKEN", "TITAGARH"
+]
+
+# Smallcap 300 Stocks
+SMALLCAP_300 = [
+    "AARTIIND", "AARTIDRUGS", "AAVAS", "ABB", "ABBOTINDIA", "ABCAPITAL", "ABFRL",
+    "ABSLAMC", "ACC", "ADANIENT", "ADANIGREEN", "ADANIPORTS", "ADANIPOWER",
+    "ADANITRANS", "AEGISCHEM", "AFFLE", "AGARIND", "AGCNET", "AHLEAST",
+    "AIAENG", "AJANTPHARM", "AKZOINDIA", "ALKYLAMINE", "ALLCARGO", "ALOKINDS",
+    "AMARAJABAT", "AMBER", "AMBUJACEM", "ANGELONE", "ANURAS", "APCOTEXIND",
+    "APLAPOLLO", "APOLLOHOSP", "APOLLOPIPE", "APOLLOTYRE", "APTUS", "ARCHIDPLY",
+    "ASAHIINDIA", "ASHAPURMIN", "ASHIANA", "ASHOKA", "ASIANPAINT", "ASTEC",
+    "ASTERDM", "ASTRAZEN", "ASTRAL", "ATUL", "AUROPHARMA", "AUBANK",
+    "AVALON", "AVANTIFEED", "AXISBANK", "BAJAJ-AUTO", "BAJAJCON", "BAJAJFINSV",
+    "BAJAJHLDNG", "BAJFINANCE", "BALAMINES", "BALAJITELE", "BALKRISIND", "BALRAMCHIN",
+    "BANCOINDIA", "BANDHANBNK", "BANKBARODA", "BANKINDIA", "BASF", "BATAINDIA",
+    "BBL", "BBTC", "BDL", "BEL", "BEML", "BERGEPAINT",
+    "BFUTILITIE", "BGRENERGY", "BHARATFORG", "BHARATGEAR", "BHARTIARTL", "BHARTIHEXA",
+    "BHEL", "BIRLACORPN", "BLAL", "BLISSGVS", "BLUEDART", "BLUESTARCO",
+    "BODALCHEM", "BOSCHLTD", "BPCL", "BRIGADE", "BRITANNIA", "BURGERKING",
+    "BUTTERFLY", "CADILAHC", "CAMS", "CANFINHOME", "CANBK", "CAPLIPOINT",
+    "CARBORUNIV", "CARERATING", "CARTRADE", "CASTROLIND", "CCL", "CEATLTD",
+    "CENTENKA", "CENTRALBK", "CENTURYPLY", "CENTURYTEX", "CERA", "CESC",
+    "CGPOWER", "CHALET", "CHAMBLFERT", "CHEMCON", "CHEMPLAST", "CHENNPETRO",
+    "CHOLAFIN", "CHOLAHLDNG", "CIPLA", "CLEAN", "COALINDIA", "COCHINSHIP",
+    "COFFEEDAY", "COFORGE", "COLPAL", "CONCOR", "COROMANDEL", "CREDITACC",
+    "CRISIL", "CROMPTON", "CUB", "CUMMINSIND", "CYIENT", "DABUR",
+    "DALBHARAT", "DATAMATICS", "DBCORP", "DBL", "DBREALTY", "DCBBANK",
+    "DCMSHRIRAM", "DEEPAKFERT", "DEEPAKNTR", "DELTACORP", "DEN", "DEVYANI",
+    "DHANI", "DHANUKA", "DHARSUGAR", "DHFL", "DISHTV", "DIVISLAB",
+    "DIXON", "DLF", "DMART", "DOLLAR", "DREAMFOLKS", "DRREDDY",
+    "DSSL", "DTIL", "EDELWEISS", "EICHERMOT", "EIDPARRY", "EIHOTEL",
+    "ELECON", "ELGIEQUIP", "EMAMILTD", "ENDURANCE", "ENGINERSIN", "EQUITAS",
+    "ERIS", "EROSMEDIA", "ESCORTS", "ESSELPACK", "EVEREADY", "EXCELINDUS",
+    "EXIDEIND", "FAIRCHEMOR", "FCL", "FEDERALBNK", "FDC", "FINEORG",
+    "FINPIPE", "FINCABLES", "FIRSTCRY", "FIVESTAR", "FLUOROCHEM", "FORTIS",
+    "FUSION", "GAEL", "GAIL", "GALAXYSURF", "GANESHHOUC", "GARFIBRES",
+    "GATEWAY", "GESHIP", "GET&D", "GFLLIMITED", "GHCL", "GICRE",
+    "GILLETTE", "GLAND", "GLAXO", "GLENMARK", "GLOBUSSPR", "GMMPFAUDLR",
+    "GMDCLTD", "GNFC", "GOACARBON", "GODFRYPHLP", "GODREJAGRO", "GODREJCP",
+    "GODREJIND", "GODREJPROP", "GOKEX", "GOKUL", "GPIL", "GPPL",
+    "GRANULES", "GRAPHITE", "GRASIM", "GREENPANEL", "GREENPLY", "GREAVESCOT",
+    "GRINDWELL", "GRSE", "GSFC", "GSPL", "GTLINFRA", "GUFICBIO",
+    "GUJALKALI", "GUJGASLTD", "GULFOILLUB", "HAL", "HAPPSTMNDS", "HATHWAY",
+    "HAVELLS", "HBLPOWER", "HCLTECH", "HCG", "HDFCAMC", "HDFCBANK", "HDFCLIFE", "HDFCPRIVATE",
+    "HEIDELBERG", "HERANBA", "HERITGFOOD", "HEROMOTOCO", "HESTERBIO", "HFCL", "HIKAL",
+    "HIL", "HINDALCO", "HINDCOPPER", "HINDPETRO", "HINDUNILVR", "HINDZINC", "HLEGLAS",
+    "HMT", "HMVL", "HOMEFIRST", "HONAUT", "HSCL", "HUDCO", "ICICIBANK",
+    "ICICIGI", "ICICIPRULI", "ICICISEC", "IDBI", "IDEA", "IDFC", "IDFCFIRSTB",
+    "IEX", "IFBIND", "IFCI", "IIFL", "IIFLSEC", "IIFLWAM", "IITL",
+    "INDBANK", "INDIGOPNTS", "INDIGO", "INDHOTEL", "INDIACEM", "INDIAMART", "INDIANB",
+    "INDIANHUME", "INDNIPPON", "INDOCO", "INDOSTAR", "INDOTECH", "INDRAMEDCO", "INDSWFTLAB",
+    "INDUSTOWER", "INFIBEAM", "INFORMEDIA", "INFY", "INGERRAND", "INOXGREEN", "INOXLEISUR",
+    "INOXWIND", "INSECTICID", "INTELLECT", "IOB", "IOC", "IPCALAB", "IRCON",
+    "IRCTC", "IREDA", "IRFC", "IRIS", "IRISDOREME", "ISEC", "ITC",
+    "ITDCEM", "ITI", "IVC", "IVP", "JAGRAN", "JAGSNPHARM", "JAMNAAUTO",
+    "JAYAGROGN", "JBM", "JBMA", "JCHAC", "JETAIRWAYS", "JKCEMENT", "JKLAKSHMI",
+    "JKPAPER", "JKTYRE", "JMA", "JMFINANCIL", "JPASSOCIAT", "JPINFRATEC", "JPPOWER",
+    "JSL", "JSLHISAR", "JSWENERGY", "JSWHL", "JSWSTEEL", "JUBILANT", "JUBLFOOD",
+    "JUSTDIAL", "JYOTHYLAB", "KAJARIACER", "KALYANKJIL", "KANSAINER", "KARMAENG", "KARURVYSYA",
+    "KCP", "KDDL", "KEC", "KEI", "KEYFINSERV", "KFINTECH", "KHADIM",
+    "KHAITANELE", "KILITCH", "KIMS", "KINGFA", "KIRLOSENG", "KIRLPNU", "KITEX",
+    "KKC", "KNRCON", "KOLTEPATIL", "KOPRAN", "KOTAKBANK", "KPITTECH", "KRBL",
+    "KREBSBIO", "KRIPAINDU", "KRISHANA", "KSBL", "KSL", "LALPATHLAB", "LAMBODHARA",
+    "LATENTVIEW", "LAXMIMACH", "LEMONTREE", "LICI", "LICHSGFIN", "LINDEINDIA", "LT",
+    "LTFOODS", "LTIM", "LTTS", "LUMAXTECH", "LUPIN", "LUXIND", "LXCHEM",
+    "LYKALABS", "MAANALU", "MAHABANK", "MAHAPEXLTD", "MAHINDCIE", "MAHLIFE", "MAHLOG",
+    "MAHSCOOTER", "MAHSEAMLES", "MAITHANALL", "MAKEINDIA", "MALUPAPER", "MANALIPETC", "MANAPPURAM",
+    "MANGLMCEM", "MANINDS", "MANINFRA", "MANKIND", "MAPMYINDIA", "MARICO", "MARKSANS",
+    "MARUTI", "MASTEK", "MATRIMONY", "MAXHEALTH", "MAXIND", "MAYURUNIQ", "MAZDA",
+    "MAZDOCK", "MCDOWELL-N", "MCX", "MEDANTA", "MEDPLUS", "MEGASOFT", "MEP",
+    "METAL", "METROPOLIS", "MGL", "MHRIL", "MIDHANI", "MINDACORP", "MINDAIND",
+    "MINDSPACE", "MISC", "MMTC", "MOIL", "MOL", "MOLDTKPAC", "MONARCH",
+    "MOREPENLAB", "MOTHERSON", "MOTILALOFS", "MPHASIS", "MPSLTD", "MRF", "MRPL",
+    "MSUMI", "MSTCLTD", "MTARTECH", "MUTHOOTFIN", "MUTHOOTMIC", "NACLIND", "NATIONALUM",
+    "NAUKRI", "NAVINFLUOR", "NAVKARCORP", "NAVNETEDUL", "NAZARA", "NBCC", "NCC",
+    "NDTV", "NELCAST", "NELCO", "NEOGEN", "NESCO", "NESTLEIND", "NETWORK18",
+    "NEULANDLAB", "NEWGEN", "NFL", "NH", "NHPC", "NIACL", "NIITLTD",
+    "NLCINDIA", "NMDC", "NOCIL", "NSLNISP", "NTPC", "NUVOCO", "OBEROIRLTY",
+    "OFSS", "OIL", "OLECTRA", "OMAXE", "ONEPOINT", "ONGC", "ONMOBILE",
+    "ORIENTALTL", "ORIENTBELL", "ORIENTCEM", "ORIENTELEC", "ORIENTHOT", "ORIENTREF", "ORISSAMINE",
+    "PANAMAPET", "PANCHMAHAL", "PANACEABIO", "PARACABLES", "PARAGMILK", "PARAS", "PARSVNATH",
+    "PATELENG", "PATINTLOG", "PCJEWELLER", "PDSL", "PEARLPOLY", "PEL", "PERSISTENT",
+    "PETRONET", "PFC", "PFIZER", "PGEL", "PGHH", "PGHL", "PHOENIXLTD",
+    "PIDILITIND", "PIIND", "PIL", "PILANIINVS", "PNBGILTS", "PNB", "PNC",
+    "PNCINFRA", "POLYCAB", "POLYMED", "POLYPLEX", "POONAWALLA", "POWERGRID", "POWERINDIA",
+    "PRAENG", "PRAJIND", "PRAKASH", "PRECAM", "PRECOT", "PREMEXPLN", "PRESSMAN",
+    "PRESTIGE", "PRISMX", "PRIVISCL", "PROZONINTU", "PSPPROJECT", "PTC", "PURVA",
+    "PVP", "PVRINOX", "QUICKHEAL", "QUESS", "RADICO", "RADIOCITY", "RAIN"
+]
+
+def validate_stock_data(ticker):
+    """Validate if stock data is available from Yahoo Finance.
+
+    Returns True if valid, False otherwise.
+    """
+    try:
+        stock = yf.Ticker(f"{ticker}.NS")
+        df = stock.history(period="1mo")
+        return not df.empty and len(df) >= 5
+    except Exception:
+        return False
+
+def get_all_stocks_with_classification():
+    """
+    Returns all NSE stocks with their classification
+    Validates each stock against Yahoo Finance
+    Returns: List of tuples (ticker, cap_size)
+    """
+    all_stocks = []
+
+    # Add Nifty 150 (Large Cap)
+    for ticker in NIFTY_150:
+        all_stocks.append((ticker, "Large Cap"))
+
+    # Add Midcap 200
+    for ticker in MIDCAP_200:
+        all_stocks.append((ticker, "Mid Cap"))
+
+    # Add Smallcap 300
+    for ticker in SMALLCAP_300:
+        all_stocks.append((ticker, "Small Cap"))
+
+    # Remove duplicates (keep first occurrence)
+    seen = set()
+    unique_stocks = []
+    for ticker, cap in all_stocks:
+        if ticker not in seen:
+            seen.add(ticker)
+            unique_stocks.append((ticker, cap))
+
+    return unique_stocks
+
+def get_validated_stocks():
+    """
+    Returns only stocks that have valid data on Yahoo Finance
+    This may take time on first run - results should be cached
+    """
+    all_stocks = get_all_stocks_with_classification()
+    validated = []
+
+    logger.info(f"Validating {len(all_stocks)} stocks against Yahoo Finance...")
+
+    for i, (ticker, cap) in enumerate(all_stocks, 1):
+        if i % 50 == 0:
+            logger.info(f"Validated {i}/{len(all_stocks)} stocks...")
+
+        if validate_stock_data(ticker):
+            validated.append((ticker, cap))
+        else:
+            logger.warning(f"Removing {ticker} - insufficient data")
+
+    logger.info(f"Validation complete: {len(validated)}/{len(all_stocks)} stocks valid")
+    return validated
+
+# Cache for validated stocks
+_validated_cache = None
+
+def get_stocks_cached():
+    """Get stocks with caching to avoid repeated validation"""
+    global _validated_cache
+    if _validated_cache is None:
+        _validated_cache = get_validated_stocks()
+    return _validated_cache

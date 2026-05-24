@@ -1,0 +1,21 @@
+# Core Dependencies
+requests>=2.31.0
+pandas>=2.0.0
+yfinance>=0.2.28
+python-dotenv>=1.0.0
+
+# AI/ML (for market_bot_ai.py only)
+transformers>=4.30.0
+torch>=2.0.0
+
+# Visualization (for creating flowcharts)
+matplotlib>=3.7.0
+numpy>=1.24.0
+
+# Optional: Scheduling
+schedule>=1.2.0
+
+# Optional Utilities (install as needed)
+# Uncomment if you need these utilities:
+# python-docx>=0.8.11      # For utilities/convert_to_word.py
+# graphviz>=0.20.0         # For utilities/create_flowchart.py (also requires system graphviz)
