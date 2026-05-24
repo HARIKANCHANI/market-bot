@@ -694,12 +694,11 @@ def send_to_notion(
             }
 
         # Add analyst ratings if already fetched
-        if data.get("consensus"):
+        if data.get("consensus") and data.get("rating_numeric") and data.get("analyst_count"):
+            # We have complete ratings data
             payload["properties"]["Consensus"] = {
                 "select": {"name": data["consensus"]}
             }
-
-        if data.get("rating_numeric") and data.get("analyst_count"):
             rating_text = (
                 f"{data['rating_numeric']:.2f}/5.0 "
                 f"({data['analyst_count']} analysts)"
@@ -707,8 +706,8 @@ def send_to_notion(
             payload["properties"]["Ratings"] = {
                 "rich_text": [{"text": {"content": rating_text}}]
             }
-        elif data.get("has_data", True):
-            # No analyst data available
+        else:
+            # No analyst data available - set defaults
             payload["properties"]["Consensus"] = {
                 "select": {"name": "No Consensus"}
             }

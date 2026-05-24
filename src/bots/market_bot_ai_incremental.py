@@ -122,19 +122,18 @@ logger.info("✅ Incremental update mode: Only updates existing + adds new ticke
 logger.info("✅ AI-powered sentiment analysis with FinBERT")
 logger.info("=" * 70)
 
-# Load FinBERT model
+# Load optimized sentiment analyzer
 logger.info("📥 Loading FinBERT AI model...")
 try:
-    sentiment_analyzer = pipeline(
-        "sentiment-analysis",
-        model="ProsusAI/finbert",
-        device=-1  # Use CPU
-    )
+    from src.core.sentiment_analyzer import SentimentAnalyzer, classify_news_type as classify_news_types
+    sentiment_analyzer = SentimentAnalyzer(model_name="ProsusAI/finbert", device=-1)
     logger.info("✅ FinBERT model loaded successfully!")
+    HAS_SENTIMENT_ANALYZER = True
 except Exception as e:
-    logger.error(f"❌ Failed to load FinBERT model: {str(e)}")
-    logger.error("   Please run: python scripts/setup/setup_models.py")
-    exit(1)
+    logger.error(f"❌ Failed to load sentiment analyzer: {str(e)}")
+    logger.error("   Will use fallback keyword-based sentiment")
+    sentiment_analyzer = None
+    HAS_SENTIMENT_ANALYZER = False
 
 
 # News sentiment keywords
@@ -151,86 +150,79 @@ NEGATIVE_KEYWORDS = [
 ]
 
 
-def analyze_ai_sentiment(news_text: str) -> float:
-    """Analyze news sentiment using FinBERT AI model"""
+def analyze_sentiment_and_classify(news_text: str) -> Tuple[float, str, List[str]]:
+    """
+    Unified sentiment analysis and news classification
+    Returns: (ai_sentiment_score, sentiment_label, news_types)
+    """
     if not news_text:
-        return 0.0
+        return (0.0, "Neutral", [])
 
     try:
-        # Truncate to 512 tokens (FinBERT limit)
-        truncated_text = news_text[:512]
-
-        # Get AI sentiment
-        result = sentiment_analyzer([truncated_text])[0]
-        label = result['label'].lower()
-        score = result['score']
-
-        # Convert to numeric sentiment
-        if label == 'positive':
-            return round(score, 2)
-        elif label == 'negative':
-            return round(-score, 2)
+        if HAS_SENTIMENT_ANALYZER and sentiment_analyzer:
+            # Use optimized sentiment analyzer (handles tokenization properly)
+            ai_score, sentiment_label = sentiment_analyzer.analyze_single(news_text)
         else:
-            return 0.0
+            # Fallback to keyword-based
+            text_lower = news_text.lower()
+            pos_count = sum(1 for kw in POSITIVE_KEYWORDS if kw in text_lower)
+            neg_count = sum(1 for kw in NEGATIVE_KEYWORDS if kw in text_lower)
+
+            if pos_count + neg_count == 0:
+                ai_score = 0.0
+                sentiment_label = "Neutral"
+            else:
+                ai_score = round((pos_count - neg_count) / (pos_count + neg_count), 2)
+                if ai_score > 0.2:
+                    sentiment_label = "Positive"
+                elif ai_score < -0.2:
+                    sentiment_label = "Negative"
+                else:
+                    sentiment_label = "Neutral"
+
+        # Classify news types
+        news_types = classify_news_types(news_text) if HAS_SENTIMENT_ANALYZER else []
+
+        return (ai_score, sentiment_label, news_types)
 
     except Exception as e:
-        logger.warning(f"AI sentiment analysis failed: {str(e)}")
-        return 0.0
-
-
-def analyze_news_sentiment(news_text: str) -> str:
-    """Analyze news sentiment using keyword matching (fallback)"""
-    if not news_text:
-        return "Neutral"
-
-    text_lower = news_text.lower()
-    positive_count = sum(1 for kw in POSITIVE_KEYWORDS if kw in text_lower)
-    negative_count = sum(1 for kw in NEGATIVE_KEYWORDS if kw in text_lower)
-
-    if positive_count > negative_count:
-        return "Positive"
-    elif negative_count > positive_count:
-        return "Negative"
-    return "Neutral"
-
-
-def classify_news_type(news_text: str) -> List[str]:
-    """Classify news into categories"""
-    if not news_text:
-        return []
-
-    text_lower = news_text.lower()
-    types = []
-
-    if any(kw in text_lower for kw in ["earnings", "profit", "revenue", "quarter"]):
-        types.append("Earnings")
-    if any(kw in text_lower for kw in ["product", "launch", "service"]):
-        types.append("Product")
-    if any(kw in text_lower for kw in ["merger", "acquisition", "deal", "partnership"]):
-        types.append("M&A")
-    if any(kw in text_lower for kw in ["expand", "plant", "facility", "capacity"]):
-        types.append("Expansion")
-    if any(kw in text_lower for kw in ["dividend", "buyback", "split"]):
-        types.append("Corporate Action")
-    if any(kw in text_lower for kw in ["regulation", "approval", "ban", "policy"]):
-        types.append("Regulatory")
-
-    return types[:3]
+        logger.warning(f"Sentiment analysis failed: {str(e)}, using neutral")
+        return (0.0, "Neutral", [])
 
 
 def fetch_news(ticker: str) -> Tuple[str, str]:
-    """Fetch news from Yahoo Finance"""
+    """
+    Fetch news from multiple sources
+    Returns: (full_news_text, news_titles_summary)
+    """
     try:
+        # Try Yahoo Finance first
         stock = yf.Ticker(ticker)
         news = stock.news
-        if news:
-            news_text = " ".join([item.get("title", "") for item in news[:5]])
-            news_titles = " | ".join([item.get("title", "") for item in news[:3]])
-            return (news_text[:2000], news_titles[:500])
-    except:
-        pass
 
-    return ("", "")
+        if news and len(news) > 0:
+            # Full text for sentiment analysis (combine title + description)
+            news_items = []
+            for item in news[:5]:  # Top 5 stories
+                title = item.get("title", "")
+                # Some items have description/summary
+                desc = item.get("description", "") or item.get("summary", "")
+                combined = f"{title}. {desc}" if desc else title
+                news_items.append(combined)
+
+            full_text = " ".join(news_items)
+
+            # Titles only for display/logging
+            titles_summary = " | ".join([item.get("title", "")[:100] for item in news[:3]])
+
+            return (full_text[:2000], titles_summary[:500])
+
+        logger.debug(f"No news found for {ticker}")
+        return ("", "")
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch news for {ticker}: {str(e)}")
+        return ("", "")
 
 
 def get_market_intelligence(symbol: str, cap_size: str) -> Dict[str, Any]:
@@ -424,13 +416,23 @@ def process_stock(ticker: str, cap_size: str) -> Dict[str, Any]:
 
     # Fetch news
     news_text, news_titles = fetch_news(ticker)
-    data["news"] = news_titles
 
-    # AI sentiment analysis
+    # ✅ FIX: Store full text for Notion, titles for logging
+    data["news"] = news_text  # Full text for "News & Updates" field
+    data["news_titles"] = news_titles  # Summary for logging
+
+    # AI sentiment analysis using optimized unified function
     if news_text:
-        data["sent"] = analyze_ai_sentiment(news_text)
-        data["news_sentiment"] = analyze_news_sentiment(news_text)
-        data["news_types"] = classify_news_type(news_text)
+        ai_score, sentiment_label, news_types = analyze_sentiment_and_classify(news_text)
+        data["sent"] = ai_score  # Numeric sentiment for "Sentiment" field
+        data["news_sentiment"] = sentiment_label  # Label for "News Sentiment" field
+        data["news_types"] = news_types  # Categories for "News Type" field
+        logger.info(f"   📰 Sentiment: {sentiment_label} ({ai_score:.2f}), Types: {news_types}")
+    else:
+        data["sent"] = 0.0
+        data["news_sentiment"] = "Neutral"
+        data["news_types"] = []
+        logger.debug(f"   ℹ️  No news available for {ticker}")
 
     return data
 

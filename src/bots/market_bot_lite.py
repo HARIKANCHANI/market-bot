@@ -678,7 +678,7 @@ def send_to_notion(data: dict, rank: int | None = None) -> None:
         try:
             print(f"   📊 Fetching analyst ratings for {data['ticker']}...")
             ratings_data = aggregate_all_analyst_ratings(data["ticker"])
-            if ratings_data["has_data"]:
+            if ratings_data and ratings_data.get("has_data"):
                 payload["properties"]["Consensus"] = {
                     "select": {"name": ratings_data["consensus"]}
                 }
@@ -700,8 +700,16 @@ def send_to_notion(data: dict, rank: int | None = None) -> None:
                 payload["properties"]["Ratings"] = {
                     "rich_text": [{"text": {"content": "N/A"}}]
                 }
+                print(f"   ℹ️  No analyst ratings available")
         except Exception as e:
             print(f"   ⚠️  Failed to fetch ratings: {str(e)}")
+            # Still set default values even if fetch fails
+            payload["properties"]["Consensus"] = {
+                "select": {"name": "No Consensus"}
+            }
+            payload["properties"]["Ratings"] = {
+                "rich_text": [{"text": {"content": "N/A"}}]
+            }
 
     response = SESSION.post(url, json=payload, headers=headers)
     if response.status_code != 200:

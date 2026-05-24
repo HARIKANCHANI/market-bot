@@ -113,15 +113,18 @@ headers = {
     "Content-Type": "application/json"
 }
 
-# Initialize AI Sentiment (FinBERT)
+# Initialize optimized sentiment analyzer
 logger.info("🤖 Loading FinBERT AI model...")
 try:
-    sentiment_model = pipeline("sentiment-analysis", model="ProsusAI/finbert", device=-1)
+    from src.core.sentiment_analyzer import SentimentAnalyzer, classify_news_type as classify_news_types_optimized
+    sentiment_analyzer = SentimentAnalyzer(model_name="ProsusAI/finbert", device=-1)
     logger.info("✅ FinBERT model loaded successfully!")
+    HAS_SENTIMENT_ANALYZER = True
 except Exception as e:
     logger.error(f"❌ Failed to load FinBERT: {str(e)}")
     logger.info("Falling back to keyword-based sentiment...")
-    sentiment_model = None
+    sentiment_analyzer = None
+    HAS_SENTIMENT_ANALYZER = False
 
 # News keywords for fallback sentiment
 POSITIVE_KEYWORDS = [
@@ -210,31 +213,45 @@ def fetch_comprehensive_news(ticker):
         logger.error(f"Error fetching news for {ticker}: {str(e)}")
         return None, []
 
-def analyze_ai_sentiment(news_titles):
-    """Analyze sentiment using FinBERT AI or fallback to keywords"""
-    if not news_titles:
-        return 0
+def analyze_ai_sentiment_and_classify(news_text):
+    """
+    Unified AI sentiment analysis and news classification
+    Returns: (ai_sentiment_score, sentiment_label, news_types)
+    """
+    if not news_text:
+        return (0.0, "Neutral", [])
 
     try:
-        if sentiment_model:
-            # Use FinBERT AI
-            results = sentiment_model(news_titles)
-            score_map = {"positive": 1, "neutral": 0, "negative": -1}
-            sent_score = sum([score_map.get(r['label'].lower(), 0) * r['score'] for r in results]) / len(results)
-            return round(sent_score, 2)
+        if HAS_SENTIMENT_ANALYZER and sentiment_analyzer:
+            # Use optimized analyzer (handles tokenization, truncation properly)
+            ai_score, sentiment_label = sentiment_analyzer.analyze_single(news_text)
+            news_types = classify_news_types_optimized(news_text)
         else:
             # Fallback to keyword-based
-            combined_text = " ".join(news_titles).lower()
+            combined_text = news_text.lower()
             pos_count = sum(1 for word in POSITIVE_KEYWORDS if word in combined_text)
             neg_count = sum(1 for word in NEGATIVE_KEYWORDS if word in combined_text)
 
             if pos_count + neg_count == 0:
-                return 0
+                ai_score = 0.0
+                sentiment_label = "Neutral"
+            else:
+                ai_score = round((pos_count - neg_count) / (pos_count + neg_count), 2)
+                if ai_score > 0.2:
+                    sentiment_label = "Positive"
+                elif ai_score < -0.2:
+                    sentiment_label = "Negative"
+                else:
+                    sentiment_label = "Neutral"
 
-            return round((pos_count - neg_count) / (pos_count + neg_count), 2)
+            # Use original classify function as fallback
+            news_types = classify_news_type(news_text)
+
+        return (ai_score, sentiment_label, news_types)
+
     except Exception as e:
         logger.error(f"Error in sentiment analysis: {str(e)}")
-        return 0
+        return (0.0, "Neutral", [])
 
 def get_news_sentiment_label(news_text):
     """Get sentiment label from news text"""
@@ -356,17 +373,22 @@ def get_market_intelligence_from_nse(symbol, cap_size):
     # Fetch comprehensive news
     news_text, news_titles = fetch_comprehensive_news(symbol)
 
-    # AI Sentiment analysis
-    ai_sentiment = analyze_ai_sentiment(news_titles)
-
-    # News sentiment label and type classification
-    news_sentiment = get_news_sentiment_label(news_text) if news_text else None
-    news_types = classify_news_type(news_text) if news_text else []
-
-    logger.info(
-        f"✅ {symbol}: (NSE) Price=₹{latest_price:.2f}, "
-        f"Momentum≈{momentum*100:.1f}% (1D), Volume≈{vol_surge:.2f}x, AI_sent={ai_sentiment}"
-    )
+    # ✅ FIX: Use unified optimized sentiment analysis
+    if news_text:
+        ai_sentiment, news_sentiment, news_types = analyze_ai_sentiment_and_classify(news_text)
+        logger.info(
+            f"✅ {symbol}: (NSE) Price=₹{latest_price:.2f}, "
+            f"Momentum≈{momentum*100:.1f}% (1D), Volume≈{vol_surge:.2f}x, "
+            f"AI_sent={ai_sentiment}, Sentiment={news_sentiment}"
+        )
+    else:
+        ai_sentiment = 0.0
+        news_sentiment = "Neutral"
+        news_types = []
+        logger.info(
+            f"✅ {symbol}: (NSE) Price=₹{latest_price:.2f}, "
+            f"Momentum≈{momentum*100:.1f}% (1D), Volume≈{vol_surge:.2f}x (No news)"
+        )
 
     return {
         "ticker": symbol,
@@ -420,16 +442,21 @@ def get_market_intelligence(symbol, cap_size):
             # Fetch comprehensive news
             news_text, news_titles = fetch_comprehensive_news(symbol)
 
-            # AI Sentiment analysis
-            ai_sentiment = analyze_ai_sentiment(news_titles)
-
-            # News sentiment label and type classification
-            news_sentiment = get_news_sentiment_label(news_text) if news_text else None
-            news_types = classify_news_type(news_text) if news_text else []
-
-            logger.info(
-                f"✅ {symbol}: Price=₹{latest_price:.2f}, Momentum={momentum*100:.1f}%, Volume={vol_surge:.2f}x"
-            )
+            # ✅ FIX: Use unified optimized sentiment analysis
+            if news_text:
+                ai_sentiment, news_sentiment, news_types = analyze_ai_sentiment_and_classify(news_text)
+                logger.info(
+                    f"✅ {symbol}: Price=₹{latest_price:.2f}, Momentum={momentum*100:.1f}%, "
+                    f"Volume={vol_surge:.2f}x, Sentiment={news_sentiment} ({ai_sentiment:.2f})"
+                )
+            else:
+                ai_sentiment = 0.0
+                news_sentiment = "Neutral"
+                news_types = []
+                logger.info(
+                    f"✅ {symbol}: Price=₹{latest_price:.2f}, Momentum={momentum*100:.1f}%, "
+                    f"Volume={vol_surge:.2f}x (No news)"
+                )
 
             return {
                 "ticker": symbol,
@@ -570,18 +597,17 @@ def send_to_notion(data, rank=None):
             }
 
         # Add analyst ratings if already fetched
-        if data.get('consensus'):
+        if data.get('consensus') and data.get('rating_numeric') and data.get('analyst_count'):
+            # We have complete ratings data
             payload["properties"]["Consensus"] = {
                 "select": {"name": data['consensus']}
             }
-
-        if data.get('rating_numeric') and data.get('analyst_count'):
             rating_text = f"{data['rating_numeric']:.2f}/5.0 ({data['analyst_count']} analysts)"
             payload["properties"]["Ratings"] = {
                 "rich_text": [{"text": {"content": rating_text}}]
             }
-        elif data.get('has_data', True):
-            # No analyst data available
+        else:
+            # No analyst data available - set defaults
             payload["properties"]["Consensus"] = {"select": {"name": "No Consensus"}}
             payload["properties"]["Ratings"] = {"rich_text": [{"text": {"content": "N/A"}}]}
 
