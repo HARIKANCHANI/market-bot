@@ -29,11 +29,18 @@ logger = setup_bot_logging("market_bot_excel")
 
 # Import stock data (prefer 650-stock version if available)
 try:
-    from data.nse_stocks_650 import get_all_stocks_with_classification, get_validated_stocks
+    from data.nse_stocks_650 import (
+        get_all_stocks_with_classification,
+        get_validated_stocks,
+        get_current_ticker,
+        is_delisted
+    )
 except ImportError:
     print("⚠️  Stock data module not found. Please check data/nse_stocks_650.py")
     get_validated_stocks = None
     get_all_stocks_with_classification = None
+    get_current_ticker = lambda x: x
+    is_delisted = lambda x: False
 
 # Import comprehensive news sources
 try:
@@ -94,7 +101,10 @@ print("✅ Excel Market Bot Started (Technical Analysis + Excel Export)")
 def fetch_news(ticker):
     """Fetch news from Yahoo Finance and Google News"""
     try:
-        stock = yf.Ticker(f"{ticker}.NS")
+        # Use current ticker (handles renamed companies)
+        current_ticker = get_current_ticker(ticker)
+
+        stock = yf.Ticker(f"{current_ticker}.NS")
         yf_news = stock.news or []
 
         # Get company info
@@ -312,7 +322,15 @@ def get_market_intelligence_from_nse(symbol, cap_size):
 
 def get_market_intelligence(symbol, cap_size):
     try:
-        stock = yf.Ticker(f"{symbol}.NS")
+        # Use current ticker (handles renamed companies)
+        current_symbol = get_current_ticker(symbol)
+
+        # Check if delisted or pump & dump
+        if is_delisted(current_symbol):
+            logger.debug(f"{symbol} is delisted, skipping")
+            return None
+
+        stock = yf.Ticker(f"{current_symbol}.NS")
         df = stock.history(period="7mo", auto_adjust=True)
 
         # Check if we have sufficient data

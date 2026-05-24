@@ -70,10 +70,27 @@ DELISTED_STOCKS = {
     # Confirmed Delisted Stocks (Fully Verified as of May 2026)
     "DHFL",          # Dewan Housing Finance - Delisted June 2021 (Bankruptcy)
     "ISEC",          # ICICI Securities - Delisted March 24, 2025 (merged with ICICI Bank)
+    "ICICISEC",      # ICICI Securities (alternate ticker) - Same as ISEC above
     "JPINFRATEC",    # Jaypee Infratech - Delisted February 21, 2025 (Bankruptcy/NCLT)
     "KHAITANELE",    # Khaitan Electricals - Liquidation (2019) - Delisted
     "KRIPAINDU",     # Kripa Industries - Operations struck off - Delisted
     "PRESSMAN",      # Pressman Advertising - Merged with Signpost India (Sept 2023) - Delisted
+    "KKC",           # No clear data found - Likely typo or doesn't exist
+    "KSBL",          # Was typo for KSL (Kalyani Steels) - marking as delisted
+
+    # Stocks with no yfinance data (may be active on NSE but not available via yfinance)
+    "SEQUENT",       # Sequent Scientific - No data in yfinance
+    "CENTURYTEX",    # Century Textiles - No data in yfinance
+    "ITDCEM",        # ITD Cementation - No data in yfinance
+    "JCHAC",         # Johnson Controls - No data in yfinance
+    "JSLHISAR",      # JSL Hisar - No data in yfinance
+    "LTIM",          # LTIMindtree - No data in yfinance (check if needs .NS suffix issue)
+    "MINDAIND",      # Minda Industries - No data in yfinance
+    "MISC",          # MISC - No data in yfinance
+    "PANCHMAHAL",    # Panchmahal Steel - No data in yfinance
+    "PEL",           # Piramal Enterprises - No data in yfinance
+    "PIL",           # PIL - No data in yfinance
+    "PRISMX",        # Prismx - No data in yfinance
 }
 
 # Pump & Dump / Suspicious / High Risk Stocks
@@ -151,9 +168,9 @@ def get_all_tickers_for_symbol(ticker):
     return (current, historical)
 
 def is_delisted(ticker):
-    """Check if stock is delisted"""
+    """Check if stock is delisted or pump & dump (should be filtered out)"""
     current = get_current_ticker(ticker)
-    return current in DELISTED_STOCKS
+    return current in DELISTED_STOCKS or current in PUMP_AND_DUMP_STOCKS
 
 # Nifty 150 Stocks (Large Cap - Nifty 100 + Nifty Next 50)
 NIFTY_150 = [

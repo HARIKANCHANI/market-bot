@@ -54,11 +54,18 @@ except ImportError:
 
 # Import stock data with validation
 try:
-    from data.nse_stocks_650 import get_all_stocks_with_classification, get_validated_stocks
+    from data.nse_stocks_650 import (
+        get_all_stocks_with_classification,
+        get_validated_stocks,
+        get_current_ticker,  # Import ticker mapping function
+        is_delisted  # Import delisted check function
+    )
 except ImportError:
     print("⚠️  Stock data module not found. Please check data/nse_stocks_650.py")
     get_validated_stocks = None
     get_all_stocks_with_classification = None
+    get_current_ticker = lambda x: x  # Fallback: return ticker as-is
+    is_delisted = lambda x: False  # Fallback: assume not delisted
 
 # Import environment configuration
 try:
@@ -158,7 +165,9 @@ SESSION = requests.Session()
 def fetch_comprehensive_news(ticker):
     """Fetch news from multiple sources"""
     try:
-        stock = yf.Ticker(f"{ticker}.NS")
+        # Use current ticker (handles renamed companies)
+        current_ticker = get_current_ticker(ticker)
+        stock = yf.Ticker(f"{current_ticker}.NS")
         yf_news = stock.news or []
 
         # Get company info
@@ -350,8 +359,10 @@ def get_market_intelligence_from_nse(symbol, cap_size):
 
     This is used when yfinance cannot provide a usable price history.
     """
+    # Use current ticker (handles renamed companies)
+    current_symbol = get_current_ticker(symbol)
 
-    nse = fetch_price_from_nse(symbol)
+    nse = fetch_price_from_nse(current_symbol)
     if not nse:
         return None
 
@@ -408,7 +419,15 @@ def get_market_intelligence_from_nse(symbol, cap_size):
 def get_market_intelligence(symbol, cap_size):
     """Complete market intelligence with AI sentiment and news"""
     try:
-        stock = yf.Ticker(f"{symbol}.NS")
+        # Use current ticker (handles renamed companies)
+        current_symbol = get_current_ticker(symbol)
+
+        # Check if delisted
+        if is_delisted(current_symbol):
+            logger.debug(f"{symbol} is delisted, skipping")
+            return None
+
+        stock = yf.Ticker(f"{current_symbol}.NS")
         df = stock.history(period="7mo", auto_adjust=True)
 
         # Check if we have sufficient data

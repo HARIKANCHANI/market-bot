@@ -52,11 +52,18 @@ except ImportError:
 
 # Import stock data
 try:
-    from data.nse_stocks_650 import get_all_stocks_with_classification, get_validated_stocks
+    from data.nse_stocks_650 import (
+        get_all_stocks_with_classification,
+        get_validated_stocks,
+        get_current_ticker,
+        is_delisted
+    )
 except ImportError:
     print("⚠️  Stock data module not found. Please check data/nse_stocks_650.py")
     get_validated_stocks = None
     get_all_stocks_with_classification = None
+    get_current_ticker = lambda x: x
+    is_delisted = lambda x: False
 
 # Import environment configuration
 try:
@@ -188,8 +195,11 @@ def fetch_news(ticker: str) -> Tuple[str, str]:
     Returns: (full_news_text, news_titles_summary)
     """
     try:
+        # Use current ticker (handles renamed companies)
+        current_ticker = get_current_ticker(ticker)
+
         # Try Yahoo Finance first
-        stock = yf.Ticker(ticker)
+        stock = yf.Ticker(current_ticker)
         news = stock.news
 
         if news and len(news) > 0:
@@ -220,7 +230,15 @@ def fetch_news(ticker: str) -> Tuple[str, str]:
 def get_market_intelligence(symbol: str, cap_size: str) -> Dict[str, Any]:
     """Fetch comprehensive market data for a stock"""
     try:
-        stock = yf.Ticker(symbol)
+        # Use current ticker (handles renamed companies)
+        current_symbol = get_current_ticker(symbol)
+
+        # Check if delisted or pump & dump
+        if is_delisted(current_symbol):
+            logger.debug(f"{symbol} is delisted, skipping")
+            return None
+
+        stock = yf.Ticker(current_symbol)
         hist = stock.history(period="3mo")
 
         if hist.empty or len(hist) < 2:

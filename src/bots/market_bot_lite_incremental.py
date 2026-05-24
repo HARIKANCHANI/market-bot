@@ -29,11 +29,18 @@ logger = setup_bot_logging("market_bot_lite_incremental")
 
 # Import stock data
 try:
-    from data.nse_stocks_650 import get_all_stocks_with_classification, get_validated_stocks
+    from data.nse_stocks_650 import (
+        get_all_stocks_with_classification,
+        get_validated_stocks,
+        get_current_ticker,
+        is_delisted
+    )
 except ImportError:
     print("⚠️  Stock data module not found. Please check data/nse_stocks_650.py")
     get_validated_stocks = None
     get_all_stocks_with_classification = None
+    get_current_ticker = lambda x: x
+    is_delisted = lambda x: False
 
 # Import incremental update utilities
 try:
@@ -171,7 +178,10 @@ def fetch_news(ticker: str) -> tuple:
                 return (news_text[:2000], news_titles[:500])
 
         # Fallback to basic Yahoo Finance news
-        stock = yf.Ticker(ticker)
+        # Use current ticker (handles renamed companies)
+        current_ticker = get_current_ticker(ticker)
+
+        stock = yf.Ticker(current_ticker)
         news = stock.news
         if news:
             news_text = " ".join([item.get("title", "") for item in news[:5]])
@@ -186,7 +196,15 @@ def fetch_news(ticker: str) -> tuple:
 def get_market_intelligence(symbol: str, cap_size: str) -> dict:
     """Fetch comprehensive market data for a stock"""
     try:
-        stock = yf.Ticker(symbol)
+        # Use current ticker (handles renamed companies)
+        current_symbol = get_current_ticker(symbol)
+
+        # Check if delisted or pump & dump
+        if is_delisted(current_symbol):
+            logger.debug(f"{symbol} is delisted, skipping")
+            return None
+
+        stock = yf.Ticker(current_symbol)
         hist = stock.history(period="3mo")
 
         if hist.empty or len(hist) < 2:

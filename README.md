@@ -7,7 +7,9 @@
 
 ## 🌟 Features
 
-- **Complete NSE Coverage**: Track all 675 NSE stocks (Nifty 150, Midcap 200, Smallcap 300)
+- **Complete NSE Coverage**: Track ~906 active NSE stocks (Nifty 150, Midcap 200, Smallcap 300)
+- **Smart Ticker Mapping** 🆕: Automatic handling of company renames and ticker changes
+- **Intelligent Filtering** 🆕: Auto-filters delisted stocks and pump & dump schemes
 - **Three Bot Versions**: Lite (fast), AI (accurate), Pro (robust)
 - **Intelligent Ranking System** ⭐: Multi-factor ranking based on 9 metrics
 - **AI Sentiment Analysis**: FinBERT-powered news sentiment (AI version)
@@ -62,17 +64,24 @@ python src/bots/market_bot_pro.py
 ```
 market-bot/
 ├── src/
-│   ├── bots/              # Main bot versions
+│   ├── bots/              # Main bot versions (7 bots)
 │   │   ├── market_bot_lite.py
+│   │   ├── market_bot_lite_incremental.py
 │   │   ├── market_bot_ai.py
-│   │   └── market_bot_pro.py
+│   │   ├── market_bot_ai_incremental.py
+│   │   ├── market_bot_pro.py
+│   │   ├── market_bot_pro_incremental.py
+│   │   └── market_bot_excel.py
 │   ├── core/              # Core functionality
 │   │   ├── analyst_ratings.py
 │   │   ├── news_aggregator.py
-│   │   └── ranking_engine.py      # ⭐ NEW - Intelligent ranking
+│   │   ├── ranking_engine.py      # ⭐ Intelligent ranking
+│   │   └── sentiment_analyzer.py  # 🆕 Centralized FinBERT
 │   ├── utils/             # Utility functions
-│   └── config/            # Configuration
-├── utilities/             # ⭐ NEW - Utility scripts
+│   └── config/            # Configuration & logging
+│       ├── env_config.py
+│       └── logging_config.py      # 🆕 Centralized logging
+├── utilities/             # ⭐ Utility scripts
 │   ├── create_ranking_flowcharts.py
 │   ├── create_flowchart.py
 │   ├── create_visual_flowchart.py
@@ -81,15 +90,17 @@ market-bot/
 │   ├── setup/            # Initial setup scripts
 │   ├── maintenance/      # Database maintenance
 │   └── analysis/         # Analysis tools
-├── data/                  # Stock data files
-│   └── nse_stocks_650.py
+├── data/                  # 🆕 Stock data & mappings
+│   └── nse_stocks_650.py # Master list + ticker mapping system
 ├── docs/                  # ⭐ UPDATED - All documentation
 │   ├── Core Documentation (8 files)
-│   ├── Ranking Documentation (7 files) ⭐ NEW
+│   ├── Ranking Documentation (7 files) ⭐
 │   └── Visual Assets (3 PNG files)
 ├── logs/                  # Log files
 ├── tests/                 # Test files
-│   └── test_ranking_engine.py     # ⭐ NEW
+│   └── test_ranking_engine.py     # ⭐
+├── PRODUCTION_TICKER_MAPPING_SYSTEM.md  # 🆕 Ticker mapping guide
+├── TICKER_MAPPING_QUICK_REFERENCE.md    # 🆕 Quick reference
 └── requirements.txt       # Dependencies
 ```
 
@@ -129,6 +140,28 @@ All stocks are automatically ranked from **1 (best) to 650+ (worst)** based on 9
 | **Analyst Ratings** | 2% | Numeric ratings (1-5) |
 
 **📚 See [docs/RANKING_INDEX.md](docs/RANKING_INDEX.md) for complete ranking documentation**
+
+## 🔄 Ticker Mapping & Filtering System 🆕
+
+All 7 bots now include automatic ticker mapping and intelligent filtering:
+
+### **Smart Ticker Resolution**
+- **13 Company Renames**: Automatically maps old tickers to current NSE symbols (e.g., IIFLSEC → IIFLCAPS)
+- **Zero Configuration**: Works seamlessly across all bots
+- **Historical Data**: Ensures renamed companies continue to appear in analysis
+
+### **Intelligent Filtering**
+- **6 Delisted Stocks**: Auto-filters genuinely delisted stocks (bankruptcy, mergers)
+- **4 Pump & Dump Stocks**: Blocks high-risk manipulation schemes
+- **~906 Active Stocks**: Final count after filtering and deduplication
+
+### **Key Features**
+- ✅ Automatic ticker resolution before API calls
+- ✅ Zero false "possibly delisted" errors
+- ✅ Single source of truth in `data/nse_stocks_650.py`
+- ✅ Easy maintenance - update one file to update all bots
+
+**📚 See [PRODUCTION_TICKER_MAPPING_SYSTEM.md](PRODUCTION_TICKER_MAPPING_SYSTEM.md) for complete details**
 
 ## 📊 Database Schema
 
@@ -192,10 +225,24 @@ python scripts/maintenance/check_database.py
 
 ## 📚 Documentation
 
+### Core Documentation
 - [Quick Start Guide](docs/QUICK_START.md) - Detailed getting started guide
 - [Database Schema](docs/DATABASE_SCHEMA.md) - Complete column reference
 - [System Guide](docs/SYSTEM_GUIDE.md) - Architecture and design
 - [Feature Implementation](docs/FEATURE_IMPLEMENTATION.md) - Feature details
+
+### Ticker Mapping System 🆕
+- [**Production Ticker Mapping System**](PRODUCTION_TICKER_MAPPING_SYSTEM.md) - Complete guide to ticker mapping, company renames, and filtering
+- [**Ticker Mapping Quick Reference**](TICKER_MAPPING_QUICK_REFERENCE.md) - Quick lookup for common mappings and integrations
+
+### Trading & Usage
+- [Notion Schema](docs/NOTION_SCHEMA.md) - Understanding Notion columns for traders
+- [Notion Views](docs/NOTION_VIEWS.md) - Daily trading workflows and position management
+
+### Technical Guides
+- [Ranking System](docs/RANKING_INDEX.md) - Complete ranking documentation
+- [PRO Configuration](docs/PRO_VERSION_CONFIGURATION.md) - Configure PRO bot settings
+- [Incremental Bots Guide](INCREMENTAL_BOTS_GUIDE.md) - Upsert pattern for faster updates
 
 ## 🔧 Configuration
 
@@ -217,8 +264,10 @@ python scripts/maintenance/check_database.py
 - **Daily Trading**: Use Lite version for fast morning updates
 - **Weekly Analysis**: Use AI version for deep sentiment analysis
 - **Monthly Reports**: Use Pro version for comprehensive reports
-- **Research**: Analyze 675 stocks with analyst ratings
+- **Incremental Updates**: Use incremental versions for faster Notion upserts
+- **Research**: Analyze ~906 active stocks with analyst ratings
 - **News Monitoring**: Track news across 70+ sources
+- **Company Renames**: Automatic handling via ticker mapping system
 
 ## 🤝 Contributing
 
