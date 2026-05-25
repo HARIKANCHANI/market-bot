@@ -568,6 +568,14 @@ def send_to_notion(data, rank=None):
                     signal = "👀 Watch"
                 score = calculate_score(data['mom'], data['vol'], signal)
 
+        # Calculate Trend based on momentum + volume confirmation
+        if data['mom'] > 0.02 and data['vol'] > 1.0:  # Upward with volume confirmation
+            trend = "📈"
+        elif data['mom'] < -0.02 and data['vol'] > 1.0:  # Downward with volume confirmation
+            trend = "📉"
+        else:  # Neutral (weak momentum or low volume)
+            trend = "➡️"
+
         # Build payload
         payload = {
             "parent": {"database_id": DATABASE_ID},
@@ -580,6 +588,7 @@ def send_to_notion(data, rank=None):
                 "Volume Surge": {"number": data['vol']},
                 "Score": {"number": score},
                 "Signal": {"select": {"name": signal}},
+                "Trend": {"select": {"name": trend}},
                 "Last Updated": {"date": {"start": datetime.now().isoformat()}}
             }
         }

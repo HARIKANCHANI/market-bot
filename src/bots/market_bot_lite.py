@@ -643,6 +643,14 @@ def send_to_notion(data: dict, rank: int | None = None) -> None:
         score += data["vol"] * 50
         score = round(score, 2)
 
+    # Calculate Trend based on momentum + volume confirmation
+    if data["mom"] > 0.02 and data["vol"] > 1.0:  # Upward with volume confirmation
+        trend = "📈"
+    elif data["mom"] < -0.02 and data["vol"] > 1.0:  # Downward with volume confirmation
+        trend = "📉"
+    else:  # Neutral (weak momentum or low volume)
+        trend = "➡️"
+
     payload: dict = {
         "parent": {"database_id": DATABASE_ID},
         "properties": {
@@ -654,6 +662,7 @@ def send_to_notion(data: dict, rank: int | None = None) -> None:
             "Volume Surge": {"number": round(data["vol"], 2)},
             "Score": {"number": score},
             "Signal": {"select": {"name": signal}},
+            "Trend": {"select": {"name": trend}},
             "Last Updated": {"date": {"start": pd.Timestamp.now().isoformat()}},
         },
     }

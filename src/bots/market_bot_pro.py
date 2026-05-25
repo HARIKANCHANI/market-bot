@@ -648,6 +648,16 @@ def send_to_notion(
                     data["momentum"], data["volume_surge"], signal
                 )
 
+        # Calculate Trend based on momentum + volume confirmation
+        momentum_val = data.get("momentum", 0.0)
+        volume_val = data.get("volume_surge", 0.0)
+        if momentum_val > 0.02 and volume_val > 1.0:  # Upward with volume confirmation
+            trend = "📈"
+        elif momentum_val < -0.02 and volume_val > 1.0:  # Downward with volume confirmation
+            trend = "📉"
+        else:  # Neutral (weak momentum or low volume)
+            trend = "➡️"
+
         payload: Dict[str, Any] = {
             "parent": {"database_id": DATABASE_ID},
             "properties": {
@@ -661,6 +671,7 @@ def send_to_notion(
                 },
                 "Score": {"number": float(score)},
                 "Signal": {"select": {"name": signal}},
+                "Trend": {"select": {"name": trend}},
                 "Last Updated": {
                     "date": {"start": datetime.now().isoformat()}
                 },

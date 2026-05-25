@@ -697,13 +697,23 @@ def create_excel_report(stocks_data, filename):
     for stock in stocks_data:
         signal, score = calculate_signal_score(stock)
 
+        # Calculate Trend based on momentum + volume confirmation
+        momentum_val = stock.get('mom', 0.0)
+        volume_val = stock.get('vol', 0.0)
+        if momentum_val > 0.02 and volume_val > 1.0:  # Upward with volume confirmation
+            trend = "📈"
+        elif momentum_val < -0.02 and volume_val > 1.0:  # Downward with volume confirmation
+            trend = "📉"
+        else:  # Neutral (weak momentum or low volume)
+            trend = "➡️"
+
         row = {
             'Rank': stock.get('rank', 0),
             'Symbol': stock['ticker'],
             'Price (₹)': round(stock['price'], 2) if stock.get('price') else 0,
             'Momentum (%)': round(stock['mom'] * 100, 2),
             'Volume Surge': round(stock['vol'], 2),
-            'Trend': '📈' if stock['sent'] > 0 else ('📉' if stock['sent'] < 0 else '➡️'),
+            'Trend': trend,
             'Score': score,
             'Signal': signal,
             'Sector': stock.get('sector', 'Unknown'),
