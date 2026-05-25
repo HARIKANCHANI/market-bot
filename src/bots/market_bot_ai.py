@@ -119,6 +119,85 @@ headers = {
     "Content-Type": "application/json"
 }
 
+# Valid Notion sectors - maps yfinance sectors to Notion select options
+VALID_NOTION_SECTORS = {
+    # Technology
+    "Technology": "Technology",
+    "Communication Services": "Technology",
+    "Telecommunication Services": "Technology",
+    "Information Technology": "Technology",
+    "Software": "Technology",
+
+    # Financial Services
+    "Financial Services": "Financial Services",
+    "Financial": "Financial Services",
+    "Banks": "Financial Services",
+    "Insurance": "Financial Services",
+
+    # Healthcare
+    "Healthcare": "Healthcare",
+    "Pharmaceuticals": "Healthcare",
+    "Biotechnology": "Healthcare",
+    "Medical Devices": "Healthcare",
+
+    # Consumer
+    "Consumer Cyclical": "Consumer Cyclical",
+    "Consumer Defensive": "Consumer Defensive",
+    "Consumer Goods": "Consumer Defensive",
+    "Retail": "Consumer Cyclical",
+
+    # Industrials
+    "Industrials": "Industrials",
+    "Industrial": "Industrials",
+    "Industrial Goods": "Industrials",
+    "Machinery": "Industrials",
+    "Construction": "Industrials",
+
+    # Energy
+    "Energy": "Energy",
+    "Oil & Gas": "Energy",
+    "Utilities": "Energy",
+
+    # Basic Materials
+    "Basic Materials": "Basic Materials",
+    "Materials": "Basic Materials",
+    "Metals & Mining": "Basic Materials",
+    "Chemicals": "Basic Materials",
+
+    # Real Estate
+    "Real Estate": "Real Estate",
+}
+
+def validate_sector(sector_name):
+    """
+    Validate and normalize sector name for Notion.
+    Maps yfinance sector names to valid Notion select options.
+    Returns 'Unknown' if sector is not recognized.
+
+    Args:
+        sector_name: Raw sector name from yfinance
+
+    Returns:
+        Valid Notion sector name or 'Unknown'
+    """
+    if not sector_name or sector_name == "Unknown":
+        return "Unknown"
+
+    # Direct match
+    if sector_name in VALID_NOTION_SECTORS:
+        return VALID_NOTION_SECTORS[sector_name]
+
+    # Try partial match (case-insensitive)
+    sector_lower = sector_name.lower()
+    for key, value in VALID_NOTION_SECTORS.items():
+        if key.lower() in sector_lower or sector_lower in key.lower():
+            logger.debug(f"Mapped sector '{sector_name}' -> '{value}'")
+            return value
+
+    # No match found - default to Unknown
+    logger.warning(f"Unknown sector '{sector_name}' mapped to 'Unknown'")
+    return "Unknown"
+
 # Initialize optimized sentiment analyzer
 logger.info("🤖 Loading FinBERT AI model...")
 try:
@@ -451,8 +530,9 @@ def get_market_intelligence(symbol, cap_size):
                     # Convert to crores (1 crore = 10 million)
                     market_cap = round(market_cap_raw / 10000000, 2)
 
-                # Get sector information
-                sector = info.get('sector', info.get('industry', 'Unknown'))
+                # Get sector information and validate for Notion
+                raw_sector = info.get('sector', info.get('industry', 'Unknown'))
+                sector = validate_sector(raw_sector)
             except Exception:
                 # Ignore failures in fetching static company metadata
                 pass
