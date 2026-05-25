@@ -777,7 +777,13 @@ def create_excel_report(stocks_data, filename):
     # Prepare data for DataFrame
     excel_data = []
 
+    # Import centralized sanitization utility
+    from src.utils.data_sanitization import sanitize_stock_data
+
     for stock in stocks_data:
+        # Sanitize numeric fields using centralized utility
+        stock = sanitize_stock_data(stock)
+
         signal, score = calculate_signal_score(stock)
 
         # Calculate Trend based on momentum + volume confirmation

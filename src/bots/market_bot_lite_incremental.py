@@ -379,6 +379,11 @@ def upsert_to_notion(data: dict, rank: int | None = None) -> tuple:
             score += data["vol"] * 50
             score = round(score, 2)
 
+        # Sanitize NaN values using centralized utility
+        from src.utils.data_sanitization import sanitize_stock_data, sanitize_number
+        data = sanitize_stock_data(data)
+        score = sanitize_number(score, 0.0)
+
         # Calculate Trend based on momentum + volume confirmation
         if data["mom"] > 0.02 and data["vol"] > 1.0:  # Upward with volume confirmation
             trend = "📈"

@@ -715,6 +715,10 @@ def send_to_notion(
     """Send a single stock's data to the Notion database."""
 
     try:
+        # Sanitize NaN values using centralized utility
+        from src.utils.data_sanitization import sanitize_stock_data, sanitize_number
+        data = sanitize_stock_data(data)
+
         # Get pre-calculated signal and score (or calculate if not present)
         signal = data.get("signal")
         score = data.get("score")
@@ -732,6 +736,9 @@ def send_to_notion(
                 score = calculate_score(
                     data["momentum"], data["volume_surge"], signal
                 )
+
+        # Sanitize score
+        score = sanitize_number(score, 0.0)
 
         # Calculate Trend based on momentum + volume confirmation
         momentum_val = data.get("momentum", 0.0)

@@ -704,6 +704,10 @@ def send_to_notion(data: dict, rank: int | None = None) -> None:
         "Content-Type": "application/json",
     }
 
+    # Sanitize NaN values using centralized utility
+    from src.utils.data_sanitization import sanitize_stock_data
+    data = sanitize_stock_data(data)
+
     # Determine signal (use "N/A" if no data)
     if not data.get("has_data", True):
         signal = "❄️ N/A"

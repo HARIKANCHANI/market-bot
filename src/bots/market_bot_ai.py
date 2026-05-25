@@ -633,6 +633,10 @@ def calculate_score(momentum, volume_surge, signal):
 def send_to_notion(data, rank=None):
     """Send comprehensive data to Notion"""
     try:
+        # Sanitize NaN values using centralized utility
+        from src.utils.data_sanitization import sanitize_stock_data, sanitize_number
+        data = sanitize_stock_data(data)
+
         # Get pre-calculated signal and score (or calculate if not present)
         signal = data.get('signal')
         score = data.get('score')
@@ -649,6 +653,9 @@ def send_to_notion(data, rank=None):
                 elif data['sent'] > 0 or data['mom'] > 0.05 or data['vol'] > 1.1:
                     signal = "👀 Watch"
                 score = calculate_score(data['mom'], data['vol'], signal)
+
+        # Sanitize score
+        score = sanitize_number(score, 0.0)
 
         # Calculate Trend based on momentum + volume confirmation
         if data['mom'] > 0.02 and data['vol'] > 1.0:  # Upward with volume confirmation

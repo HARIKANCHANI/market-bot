@@ -402,6 +402,11 @@ def upsert_to_notion(
                 signal = "👀 Watch"
             score = calculate_score(data["momentum"], data["volume_surge"], signal)
 
+        # Sanitize NaN values using centralized utility
+        from src.utils.data_sanitization import sanitize_stock_data, sanitize_number
+        data = sanitize_stock_data(data)
+        score = sanitize_number(score, 0.0)
+
         # Calculate Trend based on momentum + volume confirmation
         momentum_val = data.get("momentum", 0.0)
         volume_val = data.get("volume_surge", 0.0)
