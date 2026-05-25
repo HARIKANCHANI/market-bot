@@ -798,7 +798,7 @@ def send_to_notion(
             }
 
         # Add analyst ratings if already fetched
-        if data.get("consensus") and data.get("rating_numeric") and data.get("analyst_count"):
+        if data.get("consensus") and data.get("rating_numeric") is not None and "analyst_count" in data:
             # We have complete ratings data
             payload["properties"]["Consensus"] = {
                 "select": {"name": data["consensus"]}
