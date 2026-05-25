@@ -529,7 +529,7 @@ if __name__ == "__main__":
             all_stock_data.append(data)
 
             stats["processed"] += 1
-            time.sleep(0.3)  # Rate limiting
+            time.sleep(0.7)  # Rate limiting (optimized)
 
         except Exception as e:
             print(f"❌ Error processing {ticker}: {str(e)}")
@@ -580,7 +580,7 @@ if __name__ == "__main__":
             else:
                 stats["errors"] += 1
 
-            time.sleep(0.5)  # Rate limiting
+            time.sleep(0.3)  # Rate limiting (optimized)
 
         except Exception as e:
             print(f"❌ Error upserting {stock_data.get('ticker', '?')}: {str(e)}")

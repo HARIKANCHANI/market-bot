@@ -913,7 +913,7 @@ if __name__ == "__main__":
         finally:
             # Preserve the original light rate limiting behaviour per
             # stock while still benefiting from concurrency.
-            time.sleep(1)
+            time.sleep(0.7)  # Rate limiting (optimized)
 
             # Progress update roughly every 50 submitted stocks, using the
             # original index for a similar user-facing message.
@@ -983,7 +983,7 @@ if __name__ == "__main__":
                 else:
                     stats["neutral"] += 1
 
-                time.sleep(0.5)  # Light rate limiting for Notion
+                time.sleep(0.3)  # Light rate limiting for Notion (optimized)
 
             except Exception as e:
                 # Be defensive when accessing ticker to avoid KeyError

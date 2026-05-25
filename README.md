@@ -21,43 +21,22 @@
 
 ## 🚀 Quick Start
 
-### 1. Installation
-
 ```bash
-# Clone the repository
-git clone <your-repo-url>
-cd market-bot
-
-# Create virtual environment
+# 1. Install
+git clone <your-repo-url> && cd market-bot
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
+venv\Scripts\activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
+
+# 2. Configure (.env file)
+NOTION_TOKEN=your_token
+DATABASE_ID=your_database_id
+
+# 3. Run
+python -m src.bots.market_bot_lite
 ```
 
-### 2. Configuration
-
-Copy `.env.example` to `.env` and configure:
-
-```bash
-NOTION_TOKEN=your_notion_token_here
-DATABASE_ID=your_database_id_here
-HF_TOKEN=your_huggingface_token_here  # Only for AI version
-```
-
-### 3. Run Your Preferred Version
-
-```bash
-# Lightweight - Fast daily updates (no AI model download)
-python src/bots/market_bot_lite.py
-
-# AI Version - Weekly analysis with FinBERT sentiment
-python src/bots/market_bot_ai.py
-
-# Professional - Monthly reports with robust logging
-python src/bots/market_bot_pro.py
-```
+**📖 [Detailed Setup Guide →](./docs/getting-started/QUICK_START.md)**
 
 ## 📁 Project Structure
 
@@ -92,19 +71,22 @@ market-bot/
 │   └── analysis/         # Analysis tools
 ├── data/                  # 🆕 Stock data & mappings
 │   └── nse_stocks_650.py # Master list + ticker mapping system
-├── docs/                  # ⭐ UPDATED - All documentation
-│   ├── Core Documentation (8 files)
-│   ├── Ranking Documentation (7 files) ⭐
-│   └── Visual Assets (3 PNG files)
-├── logs/                  # Log files
+├── docs/                  # 📚 Complete Documentation (Organized)
+│   ├── getting-started/  # Quick start & installation
+│   ├── guides/           # Bot usage, features, testing
+│   ├── architecture/     # System design & diagrams
+│   ├── technical/        # API reference & code docs
+│   ├── optimization/     # Performance tuning (7-11x speedup)
+│   ├── deployment/       # Production setup & GitHub
+│   ├── maintenance/      # Troubleshooting & upkeep
+│   ├── reports/          # Historical reports & audits
+│   └── reference/        # Quick reference cards
+├── logs/                  # Bot execution logs
 ├── tests/                 # Test files
-│   └── test_ranking_engine.py     # ⭐
-├── PRODUCTION_TICKER_MAPPING_SYSTEM.md  # 🆕 Ticker mapping guide
-├── TICKER_MAPPING_QUICK_REFERENCE.md    # 🆕 Quick reference
 └── requirements.txt       # Dependencies
 ```
 
-**📚 See [docs/FOLDER_STRUCTURE.md](docs/FOLDER_STRUCTURE.md) for complete details**
+**📚 [Complete Documentation Hub →](./docs/README.md)** | **🚀 [Getting Started →](./docs/getting-started/QUICK_START.md)**
 
 ## 📋 Bot Versions Comparison
 
@@ -225,24 +207,35 @@ python scripts/maintenance/check_database.py
 
 ## 📚 Documentation
 
-### Core Documentation
-- [Quick Start Guide](docs/QUICK_START.md) - Detailed getting started guide
-- [Database Schema](docs/DATABASE_SCHEMA.md) - Complete column reference
-- [System Guide](docs/SYSTEM_GUIDE.md) - Architecture and design
-- [Feature Implementation](docs/FEATURE_IMPLEMENTATION.md) - Feature details
+### 📖 Complete Documentation Hub
+**[→ View All Documentation](./docs/README.md)** - Fully organized, enterprise-grade documentation
 
-### Ticker Mapping System 🆕
-- [**Production Ticker Mapping System**](PRODUCTION_TICKER_MAPPING_SYSTEM.md) - Complete guide to ticker mapping, company renames, and filtering
-- [**Ticker Mapping Quick Reference**](TICKER_MAPPING_QUICK_REFERENCE.md) - Quick lookup for common mappings and integrations
+### 🎯 Quick Access
 
-### Trading & Usage
-- [Notion Schema](docs/NOTION_SCHEMA.md) - Understanding Notion columns for traders
-- [Notion Views](docs/NOTION_VIEWS.md) - Daily trading workflows and position management
+#### For New Users
+- **[Quick Start Guide](./docs/getting-started/QUICK_START.md)** - Get running in 5 minutes
+- **[Bot Comparison Guide](./docs/guides/bot-usage/INCREMENTAL_BOTS_GUIDE.md)** - Choose the right bot version
+- **[Quick Reference Card](./docs/reference/QUICK_REFERENCE.md)** - Common commands
 
-### Technical Guides
-- [Ranking System](docs/RANKING_INDEX.md) - Complete ranking documentation
-- [PRO Configuration](docs/PRO_VERSION_CONFIGURATION.md) - Configure PRO bot settings
-- [Incremental Bots Guide](INCREMENTAL_BOTS_GUIDE.md) - Upsert pattern for faster updates
+#### For Traders
+- **[Ranking System](./docs/guides/features/RANKING_SYSTEM.md)** - ⭐ Understand the intelligent scoring
+- **[Notion Schema](./docs/technical/NOTION_SCHEMA.md)** - Database columns explained
+- **[Trend Logic](./docs/guides/features/TREND_LOGIC.md)** - 📈 Volume-confirmed trends
+
+#### For Developers
+- **[Technical Documentation](./docs/technical/TECHNICAL_DOCUMENTATION.md)** - Complete API reference
+- **[Code Documentation](./docs/technical/CODE_DOCUMENTATION.md)** - All 50+ Python files documented
+- **[Architecture](./docs/architecture/ARCHITECTURE_DIAGRAMS.md)** - System design & data flow
+
+#### Key Features Explained
+- **[Ticker Mapping System](./docs/guides/features/TICKER_MAPPING_SYSTEM.md)** - 🆕 Company rename handling
+- **[Sector Validation](./docs/guides/features/SECTOR_VALIDATION.md)** - 52 sectors + auto-fallback
+- **[Performance Optimization](./docs/optimization/README.md)** - 🚀 7-11x speedup achieved
+
+#### Production & Deployment
+- **[Production Deployment](./docs/deployment/PRODUCTION_READY.md)** - Production checklist
+- **[GitHub Integration](./docs/deployment/GITHUB_PUSH_QUICK_GUIDE.md)** - Version control setup
+- **[Troubleshooting](./docs/maintenance/)** - Common issues & solutions
 
 ## 🔧 Configuration
 

@@ -18,6 +18,8 @@ import time
 import re
 from datetime import datetime
 from urllib.parse import quote
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import requests
 
 # Force UTF-8 encoding for Windows console (fixes emoji display)
@@ -776,19 +778,28 @@ def main():
 
     start_time = time.time()
 
-    # PHASE 1: Collect all stock data
+    # PHASE 1: Collect all stock data (PARALLEL PROCESSING)
     logger.info("📊 PHASE 1: Collecting market intelligence for all stocks...")
-    all_stocks_data = []
+    logger.info("="*70)
 
-    for i, (ticker, cap_size) in enumerate(stocks, 1):
-        logger.info(f"[{i}/{len(stocks)}] Processing {ticker} ({cap_size})...")
+    # Setup parallel processing
+    results = [None] * len(stocks)
+    lock = threading.Lock()
+    max_workers = min(12, max(4, len(stocks)))
+    logger.info(f"🚀 Using {max_workers} parallel workers for optimal performance")
+    logger.info("="*70)
 
+    def process_stock_parallel(idx, ticker, cap_size):
+        """Worker function to process a single stock in parallel"""
         try:
+            logger.info(f"[{idx}/{len(stocks)}] Processing {ticker} ({cap_size})...")
+
             data = get_market_intelligence(ticker, cap_size)
 
             if data:
-                stats["processed"] += 1
-                stats["by_cap"][cap_size] = stats["by_cap"].get(cap_size, 0) + 1
+                with lock:
+                    stats["processed"] += 1
+                    stats["by_cap"][cap_size] = stats["by_cap"].get(cap_size, 0) + 1
 
                 # Calculate signal and score now (needed for ranking)
                 if not data.get('has_data', True):
@@ -828,28 +839,43 @@ def main():
 
                 # Track news
                 if data.get('news'):
-                    stats["with_news"] += 1
-                    if data.get('news_sentiment') == "Positive":
-                        stats["positive_news"] += 1
-                    elif data.get('news_sentiment') == "Negative":
-                        stats["negative_news"] += 1
+                    with lock:
+                        stats["with_news"] += 1
+                        if data.get('news_sentiment') == "Positive":
+                            stats["positive_news"] += 1
+                        elif data.get('news_sentiment') == "Negative":
+                            stats["negative_news"] += 1
 
-                all_stocks_data.append(data)
+                with lock:
+                    results[idx - 1] = data
             else:
-                stats["skipped"] += 1
+                with lock:
+                    stats["skipped"] += 1
 
-            time.sleep(1.5)  # Rate limiting
+            time.sleep(0.7)  # Rate limiting (optimized)
 
         except Exception as e:
             logger.error(f"❌ Error processing {ticker}: {str(e)}")
-            stats["failed"] += 1
+            with lock:
+                stats["failed"] += 1
 
         # Progress update every 50 stocks
-        if i % 50 == 0:
+        if idx % 50 == 0:
             elapsed = time.time() - start_time
-            rate = i / elapsed if elapsed > 0 else 1
-            remaining = (len(stocks) - i) / rate if rate > 0 else 0
-            logger.info(f"📈 Progress: {i}/{len(stocks)}, ~{remaining/60:.1f} min remaining, Processed: {stats['processed']}")
+            rate = idx / elapsed if elapsed > 0 else 1
+            remaining = (len(stocks) - idx) / rate if rate > 0 else 0
+            with lock:
+                processed = stats['processed']
+            logger.info(f"📈 Progress: {idx}/{len(stocks)}, ~{remaining/60:.1f} min remaining, Processed: {processed}")
+
+    # Execute parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for i, (ticker, cap_size) in enumerate(stocks, 1):
+            executor.submit(process_stock_parallel, i, ticker, cap_size)
+
+    # Filter out None results
+    all_stocks_data = [r for r in results if r is not None]
+    logger.info(f"✅ Phase 1 complete: Collected data for {len(all_stocks_data)} stocks")
 
     # PHASE 2: Intelligent ranking
     logger.info("\n" + "="*70)
@@ -888,7 +914,7 @@ def main():
             else:
                 stats["failed"] += 1
 
-            time.sleep(0.5)  # Light rate limiting
+            time.sleep(0.3)  # Light rate limiting (optimized)
 
         except Exception as e:
             logger.error(f"❌ Error sending {stock_data['ticker']} to Notion: {str(e)}")

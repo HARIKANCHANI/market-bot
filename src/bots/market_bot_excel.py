@@ -12,6 +12,8 @@ import time
 import re
 from datetime import datetime
 from urllib.parse import quote
+from concurrent.futures import ThreadPoolExecutor
+import threading
 import requests
 import pandas as pd
 import yfinance as yf
@@ -950,62 +952,85 @@ if __name__ == "__main__":
         "neutral": 0
     }
 
-    # PHASE 1: Data Collection
+    # PHASE 1: Data Collection (PARALLEL PROCESSING)
     print("="*70)
     print("📥 PHASE 1: DATA COLLECTION")
     print("="*70)
 
-    all_stocks_data = []
-    for idx, (symbol, cap_size) in enumerate(watchlist, 1):
-        print(f"\n[{idx}/{stats['total']}] Analyzing {symbol} ({cap_size})...")
-        data = get_market_intelligence(symbol, cap_size)
+    # Setup parallel processing
+    start_time = time.time()
+    results = [None] * len(watchlist)
+    lock = threading.Lock()
+    max_workers = min(12, max(4, len(watchlist)))
+    print(f"🚀 Using {max_workers} parallel workers for optimal performance")
+    print("="*70)
 
-        # Fetch analyst ratings if available
-        if HAS_ANALYST_RATINGS and data.get('has_data', True):
-            try:
-                print(f"   📊 Fetching analyst ratings for {symbol}...")
-                ratings_data = aggregate_all_analyst_ratings(symbol)
-                if ratings_data['has_data']:
-                    data['consensus'] = ratings_data['consensus']
-                    data['ratings'] = f"{ratings_data['rating_numeric']:.2f}/5.0 ({ratings_data['analyst_count']} analysts)"
-                    print(f"   ✅ Ratings: {ratings_data['consensus']} | {data['ratings']}")
-                else:
-                    data['consensus'] = "No Consensus"
+    def process_stock_parallel(idx, symbol, cap_size):
+        """Worker function to process a single stock in parallel"""
+        try:
+            print(f"\n[{idx}/{stats['total']}] Analyzing {symbol} ({cap_size})...")
+            data = get_market_intelligence(symbol, cap_size)
+
+            # Fetch analyst ratings if available
+            if HAS_ANALYST_RATINGS and data.get('has_data', True):
+                try:
+                    print(f"   📊 Fetching analyst ratings for {symbol}...")
+                    ratings_data = aggregate_all_analyst_ratings(symbol)
+                    if ratings_data['has_data']:
+                        data['consensus'] = ratings_data['consensus']
+                        data['ratings'] = f"{ratings_data['rating_numeric']:.2f}/5.0 ({ratings_data['analyst_count']} analysts)"
+                        print(f"   ✅ Ratings: {ratings_data['consensus']} | {data['ratings']}")
+                    else:
+                        data['consensus'] = "No Consensus"
+                        data['ratings'] = "N/A"
+                except Exception as e:
+                    print(f"   ⚠️  Failed to fetch ratings: {str(e)}")
+                    data['consensus'] = "N/A"
                     data['ratings'] = "N/A"
-            except Exception as e:
-                print(f"   ⚠️  Failed to fetch ratings: {str(e)}")
+            else:
                 data['consensus'] = "N/A"
                 data['ratings'] = "N/A"
-        else:
-            data['consensus'] = "N/A"
-            data['ratings'] = "N/A"
 
-        # Fetch institutional holdings (FII/DII/Promoters/MFs + trends) and compute score
-        try:
-            print(f"   📊 Fetching institutional holdings for {symbol}...")
-            holdings = get_institutional_holdings(symbol)
-            data.update(holdings)
-            data["institutional_score"] = calculate_institutional_score(data)
+            # Fetch institutional holdings (FII/DII/Promoters/MFs + trends) and compute score
+            try:
+                print(f"   📊 Fetching institutional holdings for {symbol}...")
+                holdings = get_institutional_holdings(symbol)
+                data.update(holdings)
+                data["institutional_score"] = calculate_institutional_score(data)
 
-            if holdings.get("fii_pct") is not None and holdings.get("dii_pct") is not None:
-                prom_disp = holdings.get("promoter_pct")
-                prom_disp = prom_disp if prom_disp is not None else 0.0
-                print(
-                    f"   ✅ Holdings: FII {holdings['fii_pct']:.2f}%, "
-                    f"DII {holdings['dii_pct']:.2f}%, Promoter {prom_disp:.2f}% | "
-                    f"InstScore: {data['institutional_score']}"
-                )
+                if holdings.get("fii_pct") is not None and holdings.get("dii_pct") is not None:
+                    prom_disp = holdings.get("promoter_pct")
+                    prom_disp = prom_disp if prom_disp is not None else 0.0
+                    print(
+                        f"   ✅ Holdings: FII {holdings['fii_pct']:.2f}%, "
+                        f"DII {holdings['dii_pct']:.2f}%, Promoter {prom_disp:.2f}% | "
+                        f"InstScore: {data['institutional_score']}"
+                    )
+            except Exception as e:
+                print(f"   ⚠️  Failed to fetch institutional holdings: {str(e)}")
+
+            with lock:
+                results[idx - 1] = data
+                if data.get('has_data'):
+                    stats["success"] += 1
+                else:
+                    stats["errors"] += 1
+
+            time.sleep(0.7)  # Rate limiting (optimized)
+
         except Exception as e:
-            print(f"   ⚠️  Failed to fetch institutional holdings: {str(e)}")
+            print(f"   ❌ Error processing {symbol}: {str(e)}")
+            with lock:
+                stats["errors"] += 1
 
-        all_stocks_data.append(data)
+    # Execute parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for idx, (symbol, cap_size) in enumerate(watchlist, 1):
+            executor.submit(process_stock_parallel, idx, symbol, cap_size)
 
-        if data.get('has_data'):
-            stats["success"] += 1
-        else:
-            stats["errors"] += 1
-
-        time.sleep(0.3)  # Rate limiting
+    # Filter out None results
+    all_stocks_data = [r for r in results if r is not None]
+    print(f"\n✅ Phase 1 complete: Collected data for {len(all_stocks_data)} stocks")
 
     # PHASE 2: Intelligent Ranking
     print("\n" + "="*70)

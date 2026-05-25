@@ -14,6 +14,8 @@ import sys
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 import requests
 import yfinance as yf
@@ -546,23 +548,40 @@ def main() -> None:
         "neutral": 0
     }
 
-    # Process all stocks
-    all_stock_data = []
+    # Process all stocks (PARALLEL PROCESSING)
+    logger.info("🚀 Using parallel processing for faster data collection")
 
-    for idx, (ticker, cap_size) in enumerate(stocks_list, 1):
+    results = [None] * total_stocks
+    lock = threading.Lock()
+    max_workers = min(12, max(4, total_stocks))
+
+    def process_stock_parallel(idx, ticker, cap_size):
+        """Worker function to process a single stock in parallel"""
         try:
             logger.info(f"[{idx}/{total_stocks}] Processing {ticker}...")
 
             # Get stock data
             data = process_stock(ticker, cap_size)
-            all_stock_data.append(data)
 
-            stats["processed"] += 1
-            time.sleep(0.3)  # Rate limiting
+            with lock:
+                results[idx - 1] = data
+                stats["processed"] += 1
+
+            time.sleep(0.7)  # Rate limiting (optimized)
 
         except Exception as e:
             logger.error(f"Error processing {ticker}: {str(e)}")
-            stats["errors"] += 1
+            with lock:
+                stats["errors"] += 1
+
+    # Execute parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for idx, (ticker, cap_size) in enumerate(stocks_list, 1):
+            executor.submit(process_stock_parallel, idx, ticker, cap_size)
+
+    # Filter out None results
+    all_stock_data = [r for r in results if r is not None]
+    logger.info(f"✅ Collected data for {len(all_stock_data)} stocks")
 
     # Rank stocks
     logger.info("=" * 70)
@@ -615,7 +634,7 @@ def main() -> None:
             else:
                 stats["errors"] += 1
 
-            time.sleep(0.5)  # Rate limiting
+            time.sleep(0.3)  # Rate limiting (optimized)
 
         except Exception as e:
             logger.error(f"Error upserting {stock_data.get('ticker', '?')}: {str(e)}")

@@ -14,6 +14,8 @@ import sys
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor
+import threading
 
 import requests
 import yfinance as yf
@@ -899,23 +901,33 @@ def main() -> None:
         "negative_sentiment": 0,
     }
 
-    # PHASE 1: Collect all stock data
+    # PHASE 1: Collect all stock data (PARALLEL PROCESSING)
     logger.info("📊 PHASE 1: Collecting market intelligence...")
-    all_stocks_data: List[Dict[str, Any]] = []
+    logger.info("="*70)
 
     start_time = time.time()
 
-    for idx, (ticker, cap) in enumerate(watchlist, 1):
-        logger.info("[%d/%d] 🔍 %s", idx, len(watchlist), ticker)
+    # Setup parallel processing
+    results: List[Optional[Dict[str, Any]]] = [None] * len(watchlist)
+    lock = threading.Lock()
+    max_workers = min(12, max(4, len(watchlist)))
+    logger.info("🚀 Using %d parallel workers for optimal performance", max_workers)
+    logger.info("="*70)
 
+    def process_stock_parallel(idx: int, ticker: str, cap: str) -> None:
+        """Worker function to process a single stock in parallel"""
         try:
+            logger.info("[%d/%d] 🔍 %s", idx, len(watchlist), ticker)
+
             # Get market data (always returns data, even for NA stocks)
             data = get_market_data(ticker, cap)
             if not data:
-                stats["errors"] += 1
-                continue
+                with lock:
+                    stats["errors"] += 1
+                return
 
-            stats["processed"] += 1
+            with lock:
+                stats["processed"] += 1
 
             # Fetch news (only for stocks with data)
             news_text: Optional[str] = None
@@ -942,11 +954,12 @@ def main() -> None:
                     news_sentiment = analyze_news_sentiment(news_text)
                     news_types = classify_news_type(news_text)
 
-                    stats["with_news"] += 1
-                    if news_sentiment == "Positive":
-                        stats["positive_sentiment"] += 1
-                    elif news_sentiment == "Negative":
-                        stats["negative_sentiment"] += 1
+                    with lock:
+                        stats["with_news"] += 1
+                        if news_sentiment == "Positive":
+                            stats["positive_sentiment"] += 1
+                        elif news_sentiment == "Negative":
+                            stats["negative_sentiment"] += 1
 
             # Calculate signal and score (needed for ranking)
             if not data.get("has_data", True):
@@ -994,25 +1007,39 @@ def main() -> None:
                     data["rating_numeric"] = None
                     data["analyst_count"] = 0
 
-            all_stocks_data.append(data)
-            time.sleep(2.0)  # Rate limiting
+            with lock:
+                results[idx - 1] = data
+
+            time.sleep(0.7)  # Rate limiting (optimized)
 
         except Exception as exc:  # pragma: no cover - defensive
             logger.error("❌ Error processing %s: %s", ticker, exc)
-            stats["errors"] += 1
+            with lock:
+                stats["errors"] += 1
 
         # Progress update every 50 stocks
         if idx % 50 == 0:
             elapsed = time.time() - start_time
             rate = idx / elapsed if elapsed > 0 else 1.0
             remaining = (len(watchlist) - idx) / rate if rate > 0 else 0.0
+            with lock:
+                processed = stats["processed"]
             logger.info(
                 "📈 Progress: %d/%d, ~%.1f min remaining, Processed: %d",
                 idx,
                 len(watchlist),
                 remaining / 60.0,
-                stats["processed"],
+                processed,
             )
+
+    # Execute parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        for idx, (ticker, cap) in enumerate(watchlist, 1):
+            executor.submit(process_stock_parallel, idx, ticker, cap)
+
+    # Filter out None results
+    all_stocks_data: List[Dict[str, Any]] = [r for r in results if r is not None]
+    logger.info("✅ Phase 1 complete: Collected data for %d stocks", len(all_stocks_data))
 
     # PHASE 2: Intelligent ranking
     logger.info("\n" + "=" * 70)
@@ -1059,7 +1086,7 @@ def main() -> None:
             else:
                 stats["errors"] += 1
 
-            time.sleep(0.5)  # Light rate limiting
+            time.sleep(0.3)  # Light rate limiting (optimized)
 
         except Exception as exc:  # pragma: no cover - defensive
             logger.error(
