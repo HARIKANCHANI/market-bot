@@ -3,10 +3,11 @@ name: Daily Incremental Update
 on:
   # Run daily at 8:30 AM IST (3:00 AM UTC) - Before market opens
   # Incremental update is faster (10-15 min) so runs 30 min earlier
-  schedule:
-    - cron: '0 3 * * 1-5'  # Monday to Friday
-  
-  # Also allow manual trigger
+  # DISABLED: Uncomment schedule below to enable automatic daily runs
+  # schedule:
+  #   - cron: '0 3 * * 1-5'  # Monday to Friday
+
+  # Manual trigger only (scheduled runs disabled)
   workflow_dispatch:
     inputs:
       bot_type:

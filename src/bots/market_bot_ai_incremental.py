@@ -580,7 +580,7 @@ def main() -> None:
 
     results = [None] * total_stocks
     lock = threading.Lock()
-    max_workers = min(12, max(4, total_stocks))
+    max_workers = 4  # Fixed at 4 workers to prevent API rate limiting
 
     def process_stock_parallel(idx, ticker, cap_size):
         """Worker function to process a single stock in parallel"""

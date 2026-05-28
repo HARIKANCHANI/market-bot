@@ -535,8 +535,11 @@ def get_market_intelligence(symbol, cap_size):
                 # Get sector information and validate for Notion
                 raw_sector = info.get('sector', info.get('industry', 'Unknown'))
                 sector = validate_sector(raw_sector)
-            except Exception:
+            except Exception as e:
                 # Ignore failures in fetching static company metadata
+                # Common for stocks with limited Yahoo Finance data
+                if "404" not in str(e) and "Not Found" not in str(e):
+                    logger.debug(f"   Info fetch warning for {symbol}: {str(e)[:50]}")
                 pass
 
             # Fetch comprehensive news
@@ -722,6 +725,30 @@ def send_to_notion(data, rank=None):
             payload["properties"]["Ratings"] = {
                 "rich_text": [{"text": {"content": rating_text}}]
             }
+
+            # Add target prices (with ₹ symbol in column names)
+            if data.get('target_mean'):
+                payload["properties"]["Target Mean (₹)"] = {"number": sanitize_number(data['target_mean'])}
+            if data.get('target_high'):
+                payload["properties"]["Target High (₹)"] = {"number": sanitize_number(data['target_high'])}
+            if data.get('target_low'):
+                payload["properties"]["Target Low (₹)"] = {"number": sanitize_number(data['target_low'])}
+
+            # Add price to target % (with % symbol in column name)
+            if data.get('price_to_target_pct') is not None:
+                payload["properties"]["Upside/Downside (%)"] = {"number": sanitize_number(data['price_to_target_pct'])}
+
+            # Add upgrades/downgrades
+            if data.get('upgrades_count') is not None:
+                payload["properties"]["Upgrades"] = {"number": data['upgrades_count']}
+            if data.get('downgrades_count') is not None:
+                payload["properties"]["Downgrades"] = {"number": data['downgrades_count']}
+
+            # Add analyst firms
+            if data.get('analyst_firms'):
+                payload["properties"]["Analyst Firms"] = {
+                    "rich_text": [{"text": {"content": str(data['analyst_firms'])[:2000]}}]  # Notion has 2000 char limit
+                }
         else:
             # No analyst data available - set defaults
             payload["properties"]["Consensus"] = {"select": {"name": "No Consensus"}}
@@ -792,7 +819,7 @@ def main():
     # Setup parallel processing
     results = [None] * len(stocks)
     lock = threading.Lock()
-    max_workers = min(12, max(4, len(stocks)))
+    max_workers = 4  # Fixed at 4 workers to prevent API rate limiting
     logger.info(f"🚀 Using {max_workers} parallel workers for optimal performance")
     logger.info("="*70)
 
@@ -828,21 +855,49 @@ def main():
                 if HAS_ANALYST_RATINGS and data.get('has_data', True):
                     try:
                         logger.info(f"   📊 Fetching analyst ratings for {ticker}...")
-                        ratings_data = aggregate_all_analyst_ratings(ticker)
+                        # Pass current price for price-to-target calculation
+                        current_price = data.get('price')
+                        ratings_data = aggregate_all_analyst_ratings(ticker, current_price=current_price)
+
                         if ratings_data['has_data']:
                             data['consensus'] = ratings_data['consensus']
                             data['rating_numeric'] = ratings_data['rating_numeric']
                             data['analyst_count'] = ratings_data['analyst_count']
-                            logger.info(f"   ✅ Ratings: {ratings_data['consensus']} ({ratings_data['rating_numeric']:.2f}/5.0)")
+                            data['target_mean'] = ratings_data.get('target_mean')
+                            data['target_high'] = ratings_data.get('target_high')
+                            data['target_low'] = ratings_data.get('target_low')
+                            data['price_to_target_pct'] = ratings_data.get('price_to_target_pct')
+                            data['upgrades_count'] = ratings_data.get('upgrades_count', 0)
+                            data['downgrades_count'] = ratings_data.get('downgrades_count', 0)
+                            data['analyst_firms'] = ', '.join(ratings_data.get('analyst_firms', []))
+
+                            # Enhanced logging with ticker name
+                            target_info = f", Target: ₹{ratings_data.get('target_mean', 0):.0f}" if ratings_data.get('target_mean') else ""
+                            upside_info = f" ({ratings_data.get('price_to_target_pct', 0):+.1f}%)" if ratings_data.get('price_to_target_pct') else ""
+                            logger.info(f"   ✅ {ticker} Ratings: {ratings_data['consensus']} ({ratings_data['rating_numeric']:.2f}/5.0){target_info}{upside_info}")
                         else:
                             data['consensus'] = "No Consensus"
                             data['rating_numeric'] = None
                             data['analyst_count'] = 0
+                            data['target_mean'] = None
+                            data['target_high'] = None
+                            data['target_low'] = None
+                            data['price_to_target_pct'] = None
+                            data['upgrades_count'] = 0
+                            data['downgrades_count'] = 0
+                            data['analyst_firms'] = ""
                     except Exception as e:
                         logger.warning(f"   ⚠️  Failed to fetch ratings: {str(e)}")
                         data['consensus'] = "No Consensus"
                         data['rating_numeric'] = None
                         data['analyst_count'] = 0
+                        data['target_mean'] = None
+                        data['target_high'] = None
+                        data['target_low'] = None
+                        data['price_to_target_pct'] = None
+                        data['upgrades_count'] = 0
+                        data['downgrades_count'] = 0
+                        data['analyst_firms'] = ""
 
                 # Track news
                 if data.get('news'):
@@ -859,7 +914,7 @@ def main():
                 with lock:
                     stats["skipped"] += 1
 
-            time.sleep(0.7)  # Rate limiting (optimized)
+            time.sleep(1.0)  # Rate limiting (optimized - reduced API load)
 
         except Exception as e:
             logger.error(f"❌ Error processing {ticker}: {str(e)}")

@@ -917,7 +917,7 @@ def main() -> None:
     # Setup parallel processing
     results: List[Optional[Dict[str, Any]]] = [None] * len(watchlist)
     lock = threading.Lock()
-    max_workers = min(12, max(4, len(watchlist)))
+    max_workers = 4  # Fixed at 4 workers to prevent API rate limiting
     logger.info("🚀 Using %d parallel workers for optimal performance", max_workers)
     logger.info("="*70)
 

@@ -890,7 +890,7 @@ if __name__ == "__main__":
     # Conservative level of concurrency: we are network-bound (yfinance,
     # NSE, news), so a small thread pool significantly reduces total
     # runtime without overwhelming external services.
-    max_workers = min(8, max(2, len(watchlist)))
+    max_workers = 4  # Fixed at 4 workers to prevent API rate limiting
 
     def process_stock(idx: int, ticker: str, cap: str) -> None:
         """Worker function to fetch metrics for a single stock.

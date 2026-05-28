@@ -2,10 +2,11 @@ name: Daily Market Update
 
 on:
   # Run daily at 9 AM IST (3:30 AM UTC) - Before market opens
-  schedule:
-    - cron: '30 3 * * 1-5'  # Monday to Friday
-  
-  # Also allow manual trigger
+  # DISABLED: Uncomment schedule below to enable automatic daily runs
+  # schedule:
+  #   - cron: '30 3 * * 1-5'  # Monday to Friday
+
+  # Manual trigger only (scheduled runs disabled)
   workflow_dispatch:
 
 jobs:

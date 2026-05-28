@@ -967,7 +967,7 @@ if __name__ == "__main__":
     start_time = time.time()
     results = [None] * len(watchlist)
     lock = threading.Lock()
-    max_workers = min(12, max(4, len(watchlist)))
+    max_workers = 4  # Fixed at 4 workers to prevent API rate limiting
     print(f"🚀 Using {max_workers} parallel workers for optimal performance")
     print("="*70)
 

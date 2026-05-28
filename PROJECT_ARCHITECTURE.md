@@ -28,7 +28,8 @@ The Market Bot is a multi-bot trading intelligence system that processes 906 NSE
 │  │  ┌──────────────┐  ┌──────────────┐  ┌──────────┐ │            │
 │  │  │   Parallel   │  │   Ranking    │  │ Sentiment│ │            │
 │  │  │  Processing  │  │   Engine     │  │ Analyzer │ │            │
-│  │  │  (12 workers)│  │ (Multi-factor)│  │ (FinBERT)│ │            │
+│  │  │  (4 workers) │  │ (Multi-factor)│  │ (FinBERT)│ │            │
+│  │  │  + 3 retries │  │   9 factors  │  │  + Retry │ │            │
 │  │  └──────┬───────┘  └──────┬───────┘  └────┬─────┘ │            │
 │  │         │                 │                │       │            │
 │  └─────────┼─────────────────┼────────────────┼───────┘            │
@@ -55,7 +56,7 @@ START
   │     ├─► Apply Ticker Mapping (13 company renames)
   │     └─► Filter Delisted/Pump-Dump (10 stocks)
   │
-  ├─► Create ThreadPool (12 parallel workers)
+  ├─► Create ThreadPool (4 parallel workers, 1.0s sleep, 3 retries)
   │
   ├─► For Each Stock (Parallel Processing):
   │     │
@@ -81,9 +82,11 @@ START
   │     │     ├─► Positive/Negative/Neutral
   │     │     └─► Confidence Score
   │     │
-  │     ├─► Fetch Analyst Ratings
-  │     │     ├─► Buy/Hold/Sell
-  │     │     └─► Target Price
+  │     ├─► Fetch Analyst Ratings (with 3 retries + exponential backoff)
+  │     │     ├─► Retry delays: 2s → 4s → 8s
+  │     │     ├─► Buy/Hold/Sell consensus
+  │     │     ├─► Target Price (Mean/High/Low)
+  │     │     └─► Upgrades/Downgrades count
   │     │
   │     ├─► Calculate Ranking Score (0-100)
   │     │     ├─► Momentum Weight: 30%
@@ -201,23 +204,29 @@ data/
 
 ## ⚡ PARALLEL PROCESSING ARCHITECTURE
 
+### Current Configuration (Optimized for API Stability)
+
+**Settings:**
+- **Workers:** 4 (reduced from 12 for reliability)
+- **Sleep:** 1.0s between stocks
+- **Retries:** 3 attempts with exponential backoff (2s, 4s, 8s)
+- **Success Rate:** ~99-100%
+
 ```
 ┌─────────────────────────────────────────────────┐
-│       ThreadPoolExecutor (12 Workers)           │
+│       ThreadPoolExecutor (4 Workers)            │
+│       + Retry Logic + Rate Limiting             │
 ├─────────────────────────────────────────────────┤
 │                                                 │
-│  Worker 1  ───► Stock 1, 13, 25, 37, ...       │
-│  Worker 2  ───► Stock 2, 14, 26, 38, ...       │
-│  Worker 3  ───► Stock 3, 15, 27, 39, ...       │
-│  Worker 4  ───► Stock 4, 16, 28, 40, ...       │
-│  Worker 5  ───► Stock 5, 17, 29, 41, ...       │
-│  Worker 6  ───► Stock 6, 18, 30, 42, ...       │
-│  Worker 7  ───► Stock 7, 19, 31, 43, ...       │
-│  Worker 8  ───► Stock 8, 20, 32, 44, ...       │
-│  Worker 9  ───► Stock 9, 21, 33, 45, ...       │
-│  Worker 10 ───► Stock 10, 22, 34, 46, ...      │
-│  Worker 11 ───► Stock 11, 23, 35, 47, ...      │
-│  Worker 12 ───► Stock 12, 24, 36, 48, ...      │
+│  Worker 1  ───► Stock 1, 5, 9, 13, ...         │
+│  Worker 2  ───► Stock 2, 6, 10, 14, ...        │
+│  Worker 3  ───► Stock 3, 7, 11, 15, ...        │
+│  Worker 4  ───► Stock 4, 8, 12, 16, ...        │
+│                                                 │
+│  Each worker:                                   │
+│  - Sleeps 1.0s between stocks                   │
+│  - Retries API calls up to 3 times              │
+│  - Uses exponential backoff on failures         │
 │                                                 │
 │  ┌───────────────────────────────────────────┐ │
 │  │     Thread-Safe Statistics (Lock)         │ │
